@@ -1,0 +1,20 @@
+{
+  "name": "diplodok-kladoiskatel",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Диплодок Кладоискатель — игра про диплодока, который ищет клады в лесу",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
+  }
+}
