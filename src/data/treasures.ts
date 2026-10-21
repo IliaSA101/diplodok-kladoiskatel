@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../art/palette';
 
-/** Каталог находок: 12 предметов, каждый рисуется кодом по центру квадрата. */
+/** Каталог находок: 12 обычных предметов и секретный приз; каждый рисуется кодом по центру квадрата. */
 export interface TreasureItem {
   /** Короткий латинский id, он же часть имени текстуры и ключ сохранения. */
   id: string;
@@ -9,6 +9,8 @@ export interface TreasureItem {
   name: string;
   /** Нарисовать предмет по центру квадрата size x size. */
   draw(g: Phaser.GameObjects.Graphics, size: number): void;
+  /** Секретный предмет не попадает в обычный набор клада. */
+  secret?: boolean;
 }
 
 type Gfx = Phaser.GameObjects.Graphics;
@@ -467,8 +469,86 @@ function drawRing(g: Gfx): void {
   sparkle(g, 168, 38, 15);
 }
 
+/**
+ * Золотая корона — главный приз уровня, самый нарядный предмет каталога:
+ * массивный золотой венец с пятью зубцами, бархатной вставкой и крупными самоцветами.
+ */
+function drawGoldCrown(g: Gfx): void {
+  const velvet = PALETTE.confetti[5];
+  softShadow(g, 128, 236, 196, 20);
+
+  // Бархатный «колпак» позади зубцов: виден в просветах между ними
+  outlined(g, velvet, [ellipsePart(128, 132, 176, 140)]);
+  g.fillStyle(OUTLINE, 0.18);
+  g.fillEllipse(128, 150, 150, 70);
+  g.fillStyle(WHITE, 0.28);
+  g.fillEllipse(100, 92, 50, 20);
+
+  // Золотой венец: пять зубцов, средний выше всех
+  const tips = [pt(40, 88), pt(84, 62), pt(128, 38), pt(172, 62), pt(216, 88)];
+  const valleys = [pt(62, 140), pt(106, 140), pt(150, 140), pt(194, 140)];
+  const body: Pt[] = [pt(44, 206)];
+  tips.forEach((tip, i) => {
+    body.push(tip);
+    const valley = valleys[i];
+    if (valley !== undefined) body.push(valley);
+  });
+  body.push(pt(212, 206));
+  polygon(g, body, PALETTE.gold, LINE + 1);
+  // Тень на правой половине каждого зубца
+  g.fillStyle(PALETTE.goldDark, 0.4);
+  tips.forEach((tip, i) => {
+    const valley = valleys[i];
+    if (valley !== undefined) g.fillPoints([tip, valley, pt(tip.x, 150)], true);
+  });
+  g.lineStyle(LINE + 1, OUTLINE, 1);
+  g.strokePoints(body, true);
+  // Блик на левой грани зубцов
+  g.lineStyle(7, WHITE, 0.55);
+  for (const tip of tips) g.lineBetween(tip.x - 4, tip.y + 22, tip.x - 11, tip.y + 46);
+  // Желобки между зубцами
+  g.lineStyle(5, PALETTE.goldDark, 1);
+  for (const v of valleys) g.lineBetween(v.x, v.y + 8, v.x, 164);
+
+  // Широкий обод с бархатной вставкой
+  outlined(g, PALETTE.gold, [roundRectPart(34, 164, 188, 56, 16)], LINE + 1);
+  g.fillStyle(PALETTE.goldDark, 1);
+  g.fillRoundedRect(42, 213, 172, 6, 3);
+  g.fillStyle(WHITE, 0.45);
+  g.fillRoundedRect(44, 167, 72, 5, 2);
+  outlined(g, velvet, [roundRectPart(46, 174, 164, 36, 12)], 4);
+  g.fillStyle(WHITE, 0.25);
+  g.fillRoundedRect(58, 178, 140, 6, 3);
+
+  // Самоцветы на ободе: большой голубой в центре и две розовые «капли» по бокам
+  gem(g, [pt(58, 178), pt(74, 178), pt(84, 190), pt(66, 208), pt(48, 190)], PALETTE.flowerPink, OUTLINE, 0.5);
+  gem(g, [pt(182, 178), pt(198, 178), pt(208, 190), pt(190, 208), pt(172, 190)], PALETTE.flowerPink, OUTLINE, 0.5);
+  gem(g, [pt(110, 170), pt(146, 170), pt(160, 188), pt(128, 216), pt(96, 188)], PALETTE.crystal, PALETTE.crystalDark, 1);
+
+  // Шары-самоцветы на зубцах
+  outlined(g, PALETTE.flowerPink, [circlePart(40, 82, 13)], 5);
+  outlined(g, PALETTE.crystal, [circlePart(84, 56, 15)], 5);
+  outlined(g, PALETTE.flowerPink, [circlePart(128, 30, 20)], 5);
+  outlined(g, PALETTE.crystal, [circlePart(172, 56, 15)], 5);
+  outlined(g, PALETTE.flowerPink, [circlePart(216, 82, 13)], 5);
+  g.fillStyle(WHITE, 0.85);
+  g.fillCircle(122, 23, 5);
+  g.fillCircle(79, 50, 4);
+  g.fillCircle(167, 50, 4);
+
+  // Блеск
+  sparkle(g, 66, 38, 15);
+  sparkle(g, 196, 36, 19);
+  sparkle(g, 232, 128, 12);
+  sparkle(g, 24, 140, 12);
+}
+
 // ---------------------------------------------------------------- catalog
 
+/** id секретного предмета — главного приза уровня. */
+export const SECRET_ITEM_ID = 'goldcrown';
+
+/** Все предметы, включая секретные: по ним запекаются текстуры. */
 export const TREASURES: readonly TreasureItem[] = [
   { id: 'crystal', name: 'Кристалл', draw: scaled(drawCrystal) },
   { id: 'coin', name: 'Монета', draw: scaled(drawCoin) },
@@ -482,7 +562,11 @@ export const TREASURES: readonly TreasureItem[] = [
   { id: 'bone', name: 'Косточка', draw: scaled(drawBone) },
   { id: 'starstone', name: 'Звёздный камень', draw: scaled(drawStarstone) },
   { id: 'ring', name: 'Колечко', draw: scaled(drawRing) },
+  { id: SECRET_ITEM_ID, name: 'Золотая корона', draw: scaled(drawGoldCrown), secret: true },
 ];
+
+/** Только обычные предметы: из них набираются клады уровня (секретный сюда не входит). */
+export const REGULAR_TREASURES: readonly TreasureItem[] = TREASURES.filter((t) => t.secret !== true);
 
 /** Предмет по id; бросает ошибку, если id неизвестен. */
 export function getTreasureItem(id: string): TreasureItem {

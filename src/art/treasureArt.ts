@@ -262,6 +262,32 @@ function drawGlow(g: Gfx): void {
   }
 }
 
+/** Капля-брызг: вытянутая капля цвета воды с бликом, частица всплеска из ручья. */
+function drawSplash(g: Gfx): void {
+  const cx = 15;
+  const cy = 21;
+  const r = 10.5;
+  const tipY = 4;
+  // Касательные из острия к окружности: угол точки касания от направления «вверх».
+  const theta = Math.acos(r / (cy - tipY));
+  const start = -(Math.PI / 2 - theta);
+  const end = Math.PI + (Math.PI / 2 - theta);
+  const pts: Pt[] = [pt(cx, tipY)];
+  const steps = 20;
+  for (let i = 0; i <= steps; i += 1) {
+    const a = start + ((end - start) * i) / steps;
+    pts.push(pt(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
+  }
+  g.fillStyle(PALETTE.waterLight, 1);
+  g.fillPoints(pts, true);
+  g.lineStyle(3, PALETTE.waterDark, 1);
+  g.strokePoints(pts, true);
+  // Блик слева
+  g.fillStyle(WHITE, 0.85);
+  g.fillEllipse(10.5, 22, 4.5, 8);
+  g.fillCircle(12.5, 15, 1.8);
+}
+
 /** Конфетти: квадратик, кружок и полосочка. */
 function drawConfetti(index: number): (g: Gfx) => void {
   return (g) => {
@@ -290,10 +316,12 @@ export function generateTreasureTextures(scene: Phaser.Scene): void {
   bake(scene, TEX.SPARKLE, 36, 36, drawSparkle);
   bake(scene, TEX.STAR, 72, 72, drawStar);
   bake(scene, TEX.GLOW, 160, 160, drawGlow);
+  bake(scene, TEX.SPLASH, 30, 34, drawSplash);
   TEX.CONFETTI.forEach((key, index) => {
     bake(scene, key, 26, 26, drawConfetti(index));
   });
 
+  // TREASURES — полный список, включая секретные предметы (REGULAR_TREASURES сюда не годится).
   for (const item of TREASURES) {
     bake(scene, itemTexture(item.id), ITEM_SIZE, ITEM_SIZE, (g) => {
       item.draw(g, ITEM_SIZE);

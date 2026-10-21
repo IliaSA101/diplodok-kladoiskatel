@@ -5,6 +5,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { BootScene } from './scenes/BootScene';
 import { CollectionScene } from './scenes/CollectionScene';
 import { ForestScene } from './scenes/ForestScene';
+import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { MenuScene } from './scenes/MenuScene';
 import { VictoryScene } from './scenes/VictoryScene';
 
@@ -27,7 +28,7 @@ const game = new Phaser.Game({
   // На планшете ребёнок легко кладёт на экран несколько пальцев.
   input: { activePointers: 3 },
   banner: false,
-  scene: [BootScene, MenuScene, ForestScene, CollectionScene, VictoryScene],
+  scene: [BootScene, MenuScene, LevelSelectScene, ForestScene, CollectionScene, VictoryScene],
 });
 
 // Правый клик по игре не нужен.

@@ -1,12 +1,14 @@
 /**
- * Главное меню: небо, лес по краям, большой диплодок и одна огромная кнопка «Играть».
- * Текст минимальный — всё понятно по иконкам.
+ * Главное меню: небо, лес по краям, большой диплодок и огромная кнопка «Играть»
+ * с цифрой текущего леса. Рядом — кнопка-карта «Леса» для выбора другого леса.
+ * Текст минимальный — всё понятно по иконкам и цифрам.
  */
 import Phaser from 'phaser';
 import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { PALETTE } from '../art/palette';
 import { TEX } from '../art/keys';
 import { createPanel, createRoundButton, createText } from '../art/ui';
+import { createLevelBadge } from '../art/levelBadge';
 import type { RoundButton } from '../art/ui';
 import { audio } from '../audio/AudioEngine';
 import { Diplodocus } from '../entities/Diplodocus';
@@ -62,6 +64,16 @@ export class MenuScene extends Phaser.Scene {
     });
     createText(this, playX, playY + 110 + 62, 'Играть ▶', CONFIG.ui.fontSizeBig);
 
+    // Цифра текущего леса у кнопки «Играть»: видно, куда она ведёт.
+    this.createCurrentLevelBadge(playX + 150, playY - 104);
+
+    // Кнопка-карта «Леса» — выбрать другой лес.
+    const mapRadius = CONFIG.ui.buttonRadius;
+    const mapX = GAME_WIDTH - CONFIG.ui.padding - mapRadius - 10;
+    const mapY = playY + 150;
+    createRoundButton(this, mapX, mapY, TEX.ICON_MAP, () => this.openLevels(), { radius: mapRadius });
+    createText(this, mapX, mapY + mapRadius + 30, 'Леса', CONFIG.ui.fontSizeText);
+
     this.createSoundButton();
     this.createMuseumCounter();
 
@@ -98,7 +110,21 @@ export class MenuScene extends Phaser.Scene {
     if (this.started) return;
     this.started = true;
     audio.unlock();
-    this.scene.start(SCENE.FOREST);
+    this.scene.start(SCENE.FOREST, { level: save.loadCurrentLevel() });
+  }
+
+  private openLevels(): void {
+    if (this.started) return;
+    this.started = true;
+    audio.unlock();
+    this.scene.start(SCENE.LEVELS);
+  }
+
+  /** Оранжевый кружок с цифрой текущего леса и листочком сверху. */
+  private createCurrentLevelBadge(x: number, y: number): void {
+    const radius = 52;
+    const badge = createLevelBadge(this, x, y, save.loadCurrentLevel(), radius, 'warm', CONFIG.ui.fontSizeBig);
+    badge.body.add(this.add.image(0, -radius + 2, TEX.ICON_LEAF).setScale(0.55));
   }
 
   /** Небо с градиентом, холмы, облака, земля и пара деревьев по краям. */

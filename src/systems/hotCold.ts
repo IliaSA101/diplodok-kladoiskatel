@@ -20,21 +20,26 @@ const SILENT: HotColdState = {
   distance: Number.POSITIVE_INFINITY,
 };
 
+/**
+ * @param maxDistance с какого расстояния подсказка начинает светиться
+ *   (на поздних лесах меньше — искать интереснее).
+ */
 export function computeHotCold(
   x: number,
   y: number,
   treasures: readonly TreasureSpec[],
-  isFound: (id: string) => boolean,
+  isActive: (treasure: TreasureSpec) => boolean,
+  maxDistance: number,
 ): HotColdState {
   let distance = Number.POSITIVE_INFINITY;
   for (const treasure of treasures) {
-    if (isFound(treasure.id)) continue;
+    if (!isActive(treasure)) continue;
     const d = Math.hypot(treasure.x - x, treasure.y - y);
     if (d < distance) distance = d;
   }
   if (!Number.isFinite(distance)) return SILENT;
 
-  const { minDistance, maxDistance, beepFastMs, beepSlowMs } = CONFIG.hotCold;
+  const { minDistance, beepFastMs, beepSlowMs } = CONFIG.hotCold;
   const raw = (maxDistance - distance) / (maxDistance - minDistance);
   const t = raw < 0 ? 0 : raw > 1 ? 1 : raw;
   // Кривая погорячее к концу: вдалеке подсказка почти не мешает.

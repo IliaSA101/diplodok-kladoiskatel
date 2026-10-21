@@ -139,6 +139,24 @@ function arc(cx: number, cy: number, r: number, fromDeg: number, toDeg: number, 
   };
 }
 
+/** Волнистая линия толщиной w: синусоида из коротких отрезков (periods — число волн). */
+function wave(x1: number, x2: number, y: number, amp: number, periods: number, w: number): Shape {
+  const steps = 16;
+  const segments: Shape[] = [];
+  const at = (i: number): Pt => ({
+    x: x1 + ((x2 - x1) * i) / steps,
+    y: y + Math.sin((i / steps) * periods * Math.PI * 2) * amp,
+  });
+  for (let i = 0; i < steps; i++) {
+    const a = at(i);
+    const b = at(i + 1);
+    segments.push(capsule(a.x, a.y, b.x, b.y, w));
+  }
+  return (g, grow) => {
+    for (const seg of segments) seg(g, grow);
+  };
+}
+
 /** Многоугольник со скруглёнными углами (радиус r вокруг опорных точек). */
 function roundedPoly(points: Pt[], r: number): Shape {
   const edges: Shape[] = points.map((p, i) => {
@@ -153,6 +171,8 @@ function roundedPoly(points: Pt[], r: number): Shape {
 
 /** Иконка: тёмная обводка, кремовая заливка, поверх — тёмные детали. */
 function drawIcon(scene: Phaser.Scene, key: string, shapes: Shape[], details: Shape[] = []): void {
+  // Иконка уже запечена при предыдущем вызове — не трогаем.
+  if (scene.textures.exists(key)) return;
   const g = newGraphics(scene);
   g.fillStyle(PALETTE.uiText, 1);
   for (const s of shapes) s(g, ICON_OUTLINE);
@@ -267,16 +287,147 @@ function drawIcons(scene: Phaser.Scene): void {
     capsule(30, 48, 52, 25, 12),
     capsule(30, 48, 52, 71, 12),
   ]);
+
+  // «Толкнуть камень»: округлый камень с трещинками и короткая толстая стрелка, упирающаяся в него.
+  drawIcon(
+    scene,
+    TEX.ICON_PUSH,
+    [
+      roundedPoly(
+        [
+          { x: 64, y: 32 },
+          { x: 78, y: 30 },
+          { x: 86, y: 48 },
+          { x: 82, y: 68 },
+          { x: 66, y: 70 },
+          { x: 54, y: 58 },
+          { x: 54, y: 42 },
+        ],
+        6,
+      ),
+      capsule(12, 50, 22, 50, 14),
+      roundedPoly(
+        [
+          { x: 16, y: 32 },
+          { x: 16, y: 68 },
+          { x: 36, y: 50 },
+        ],
+        5,
+      ),
+    ],
+    [capsule(66, 41, 74, 51, 4), capsule(74, 51, 69, 62, 4)],
+  );
+
+  // «Достать из воды»: крупная капля с бликом и две волнистые линии под ней.
+  drawIcon(
+    scene,
+    TEX.ICON_WATER,
+    [
+      circle(48, 38, 16),
+      roundedPoly(
+        [
+          { x: 48, y: 12 },
+          { x: 33, y: 34 },
+          { x: 63, y: 34 },
+        ],
+        4,
+      ),
+      wave(12, 78, 70, 3.5, 2, 6),
+      wave(20, 86, 85, 3.5, 2, 6),
+    ],
+    [arc(48, 39, 9, 195, 255, 4)],
+  );
+
+  // Корона: три зубца с камнями-кружками на концах, ободок с самоцветами.
+  drawIcon(
+    scene,
+    TEX.ICON_CROWN,
+    [
+      roundedPoly(
+        [
+          { x: 18, y: 77 },
+          { x: 14, y: 39 },
+          { x: 34, y: 57 },
+          { x: 48, y: 33 },
+          { x: 62, y: 57 },
+          { x: 82, y: 39 },
+          { x: 78, y: 77 },
+        ],
+        4,
+      ),
+      rrect(14, 69, 68, 16, 6),
+      circle(14, 34, 7),
+      circle(48, 25, 8),
+      circle(82, 34, 7),
+    ],
+    [
+      circle(14, 34, 3),
+      circle(48, 25, 3.5),
+      circle(82, 34, 3),
+      capsule(20, 69, 76, 69, 4),
+      circle(31, 77, 3.5),
+      circle(48, 77, 3.5),
+      circle(65, 77, 3.5),
+    ],
+  );
+
+  // «Дальше»: толстая блочная стрелка вправо с хвостом-древком.
+  drawIcon(scene, TEX.ICON_NEXT, [
+    roundedPoly(
+      [
+        { x: 12, y: 38 },
+        { x: 50, y: 38 },
+        { x: 50, y: 22 },
+        { x: 84, y: 48 },
+        { x: 50, y: 74 },
+        { x: 50, y: 58 },
+        { x: 12, y: 58 },
+      ],
+      4,
+    ),
+  ]);
+
+  // «Выбрать лес»: свёрнутая гармошкой карта со сгибами, точкой-меткой и крестиком клада.
+  drawIcon(
+    scene,
+    TEX.ICON_MAP,
+    [
+      roundedPoly(
+        [
+          { x: 10, y: 24 },
+          { x: 34, y: 32 },
+          { x: 60, y: 22 },
+          { x: 86, y: 30 },
+          { x: 86, y: 72 },
+          { x: 60, y: 64 },
+          { x: 34, y: 74 },
+          { x: 10, y: 66 },
+        ],
+        3,
+      ),
+    ],
+    [
+      capsule(34, 32, 34, 74, 4),
+      capsule(60, 22, 60, 64, 4),
+      circle(47, 46, 6),
+      capsule(67, 45, 79, 57, 4),
+      capsule(67, 57, 79, 45, 4),
+    ],
+  );
 }
 
-/** Текстуры интерфейса: кнопки, иконки, панель, метка тапа. Один раз в BootScene. */
+/**
+ * Текстуры интерфейса: кнопки, иконки, панель, метка тапа. Один раз в BootScene.
+ * Безопасно вызывать повторно: каждая группа проверяет свои ключи отдельно,
+ * а каждая иконка — свой (см. drawIcon), так что дозапекаются только недостающие.
+ */
 export function generateUiTextures(scene: Phaser.Scene): void {
-  if (scene.textures.exists(TEX.BTN_WARM)) return;
-  drawButton(scene, TEX.BTN_WARM, PALETTE.uiButton, PALETTE.uiButtonDark);
-  drawButton(scene, TEX.BTN_CALM, PALETTE.uiButtonCalm, PALETTE.uiButtonCalmDark);
-  drawPanel(scene);
-  drawSlot(scene);
-  drawTapMark(scene);
+  const has = (key: string): boolean => scene.textures.exists(key);
+  if (!has(TEX.BTN_WARM)) drawButton(scene, TEX.BTN_WARM, PALETTE.uiButton, PALETTE.uiButtonDark);
+  if (!has(TEX.BTN_CALM)) drawButton(scene, TEX.BTN_CALM, PALETTE.uiButtonCalm, PALETTE.uiButtonCalmDark);
+  if (!has(TEX.PANEL)) drawPanel(scene);
+  if (!has(TEX.SLOT)) drawSlot(scene);
+  if (!has(TEX.TAP_MARK)) drawTapMark(scene);
   drawIcons(scene);
 }
 

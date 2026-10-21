@@ -4,17 +4,16 @@
  * Любая ошибка (приватный режим, переполнение, мусор в данных) гасится молча:
  * игра всегда должна запускаться.
  */
-const PREFIX = 'diplodok-kladoiskatel:v1:';
-const KEY_PROGRESS = PREFIX + 'progress';
-const KEY_COLLECTION = PREFIX + 'collection';
-const KEY_SETTINGS = PREFIX + 'settings';
+const PREFIX = 'diplodok-kladoiskatel:';
+const V2 = PREFIX + 'v2:';
 
-/** Прогресс текущего леса. */
-export interface Progress {
-  seed: number;
-  /** id найденных кладов (TreasureSpec.id). */
-  found: string[];
-}
+const KEY_CURRENT = V2 + 'current';
+const KEY_LEVELS = V2 + 'levels';
+const KEY_DONE = V2 + 'completed';
+const KEY_COLLECTION = V2 + 'collection';
+const KEY_SETTINGS = V2 + 'settings';
+/** Коллекция первой версии игры — переносим её один раз, чтобы музей не обнулился. */
+const KEY_COLLECTION_V1 = PREFIX + 'v1:collection';
 
 export interface Settings {
   muted: boolean;
@@ -41,31 +40,70 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+function asNumberArray(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+    : [];
+}
+
+/** Найденные клады по номерам лесов: { "3": ["t0", "t5"] }. */
+function readLevels(): Record<string, string[]> {
+  const data = read(KEY_LEVELS);
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) return {};
+  const result: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    result[key] = asStringArray(value);
+  }
+  return result;
+}
+
 export const save = {
-  loadProgress(): Progress | null {
-    const data = read(KEY_PROGRESS);
-    if (data === null || typeof data !== 'object') return null;
-    const obj = data as Record<string, unknown>;
-    const seed = obj['seed'];
-    if (typeof seed !== 'number' || !Number.isFinite(seed)) return null;
-    return { seed, found: asStringArray(obj['found']) };
+  /** Лес, который открывается кнопкой «Играть». */
+  loadCurrentLevel(): number {
+    const value = read(KEY_CURRENT);
+    return typeof value === 'number' && Number.isFinite(value) && value >= 1
+      ? Math.floor(value)
+      : 1;
   },
 
-  saveProgress(progress: Progress): void {
-    write(KEY_PROGRESS, progress);
+  saveCurrentLevel(level: number): void {
+    write(KEY_CURRENT, Math.max(1, Math.floor(level)));
   },
 
-  clearProgress(): void {
-    try {
-      localStorage.removeItem(KEY_PROGRESS);
-    } catch {
-      /* ничего */
-    }
+  /** id кладов, найденных в этом лесу. */
+  loadLevelFound(level: number): string[] {
+    return readLevels()[String(level)] ?? [];
+  },
+
+  saveLevelFound(level: number, found: readonly string[]): void {
+    const levels = readLevels();
+    levels[String(level)] = [...found];
+    write(KEY_LEVELS, levels);
+  },
+
+  /** Леса, пройденные полностью (включая секретный клад). */
+  loadCompleted(): number[] {
+    return asNumberArray(read(KEY_DONE));
+  },
+
+  isLevelComplete(level: number): boolean {
+    return save.loadCompleted().includes(level);
+  },
+
+  markLevelComplete(level: number): void {
+    const done = new Set(save.loadCompleted());
+    done.add(level);
+    write(KEY_DONE, [...done].sort((a, b) => a - b));
   },
 
   /** Все предметы, найденные за всё время (музей). */
   loadCollection(): string[] {
-    return asStringArray(read(KEY_COLLECTION));
+    const current = asStringArray(read(KEY_COLLECTION));
+    if (current.length > 0) return current;
+    // Первый запуск после обновления игры: забираем музей из старой версии.
+    const old = asStringArray(read(KEY_COLLECTION_V1));
+    if (old.length > 0) write(KEY_COLLECTION, old);
+    return old;
   },
 
   addToCollection(itemIds: readonly string[]): void {

@@ -2,19 +2,22 @@
 export const SCENE = {
   BOOT: 'Boot',
   MENU: 'Menu',
+  LEVELS: 'Levels',
   FOREST: 'Forest',
   COLLECTION: 'Collection',
   VICTORY: 'Victory',
 } as const;
 
-/** Запуск леса: без seed — продолжаем сохранённый лес или создаём первый. */
+/** Запуск леса: без номера — продолжаем сохранённый. */
 export interface ForestSceneData {
-  seed?: number;
+  level?: number;
 }
 
 /** Экран «Мои сокровища» запускается поверх паузы леса. */
 export interface CollectionSceneData {
-  /** Все 8 предметов текущего леса, по порядку сетки. */
+  /** Номер леса — показывается цифрой в заголовке. */
+  level: number;
+  /** Все предметы этого леса по порядку сетки; последний — секретный. */
   itemIds: string[];
   /** Какие из них уже найдены. */
   foundItemIds: string[];
@@ -22,5 +25,8 @@ export interface CollectionSceneData {
 
 /** Праздничный экран. */
 export interface VictorySceneData {
+  level: number;
   itemIds: string[];
+  /** Предмет из секретного сундука — показывается крупнее остальных. */
+  crownItemId: string;
 }

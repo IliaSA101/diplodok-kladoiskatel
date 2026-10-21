@@ -1,37 +1,55 @@
 /**
- * Главная сцена: лес, диплодок, клады.
+ * Главная сцена: лес одного уровня, диплодок, клады.
  *
  * Правила сцены:
  * - проиграть нельзя, таймеров нет, подсказка всегда доступна;
- * - одна большая кнопка действия сама понимает, копать или тянуться к дереву;
+ * - одна большая кнопка действия сама понимает, что делать: копать, тянуться
+ *   к кроне, толкать камень, нырять в ручей или открывать секретный сундук;
  * - пока идёт находка (busy), управление отключено, чтобы ребёнок не сбил анимацию.
  */
 import Phaser from 'phaser';
+import { generateForestTextures } from '../art/forest';
 import { itemTexture, TEX } from '../art/keys';
 import { PALETTE } from '../art/palette';
+import { themeTexture, THEMES } from '../art/themes';
 import { createPanel, createRoundButton, createText, type RoundButton } from '../art/ui';
 import { audio } from '../audio/AudioEngine';
-import { CONFIG, GAME_HEIGHT, GAME_WIDTH, WORLD_HEIGHT, WORLD_WIDTH } from '../config';
-import { getTreasureItem } from '../data/treasures';
+import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { getLevel, type LevelSpec } from '../data/levels';
+import { getTreasureItem, SECRET_ITEM_ID } from '../data/treasures';
+import { Critters, Squirrel } from '../entities/Critters';
 import { Diplodocus } from '../entities/Diplodocus';
-import { createForestObject, pushOutOfObstacles, type Obstacle } from '../entities/ForestObject';
+import { createForestObject, pushOutOfObstacles, type ForestObject, type Obstacle } from '../entities/ForestObject';
 import { Treasure } from '../entities/Treasure';
 import { Controls } from '../systems/controls';
 import { computeHotCold } from '../systems/hotCold';
 import { save } from '../systems/save';
-import { generateWorld, type WorldData } from '../systems/worldGen';
+import { generateWorld, type TreasureKind, type WorldData } from '../systems/worldGen';
 import { SCENE, type ForestSceneData } from '../types';
 
 /** Клавиатурное движение по вертикали чуть медленнее — псевдо-перспектива вида сверху-сбоку. */
 const VERTICAL_SPEED_FACTOR = 0.78;
 const STEP_SOUND_INTERVAL = 330;
+/** На каком расстоянии белка замечает диплодока. */
+const SQUIRREL_RADIUS = 190;
 
 /**
- * Глубина у объектов леса равна их координате y (до 2160), поэтому интерфейс
- * и экран находки живут заведомо выше — иначе их закрывают деревья.
+ * Глубина у объектов леса равна их координате y (до 2880), поэтому ночь,
+ * интерфейс и экран находки живут заведомо выше.
  */
+const NIGHT_DEPTH = 90000;
+const WEATHER_DEPTH = 80000;
 const HUD_DEPTH = 100000;
 const REVEAL_DEPTH = 200000;
+
+/** Какая иконка на кнопке действия для каждого вида клада. */
+const ACTION_ICON: Record<TreasureKind, string> = {
+  ground: TEX.ICON_SHOVEL,
+  tree: TEX.ICON_LEAF,
+  rock: TEX.ICON_PUSH,
+  water: TEX.ICON_WATER,
+  secret: TEX.ICON_CROWN,
+};
 
 interface HudZone {
   x: number;
@@ -40,21 +58,27 @@ interface HudZone {
 }
 
 export class ForestScene extends Phaser.Scene {
+  private level!: LevelSpec;
   private world!: WorldData;
   private dino!: Diplodocus;
   private controls!: Controls;
 
   private readonly obstacles: Obstacle[] = [];
+  private decorObjects: ForestObject[] = [];
   private readonly treasures: Treasure[] = [];
+  private readonly squirrels: Squirrel[] = [];
+  private critters: Critters | null = null;
   private foundIds = new Set<string>();
 
   private dinoX = 0;
   private dinoY = 0;
   private moveTarget: { x: number; y: number } | null = null;
   private busy = false;
+  private secretLit = false;
 
   private nextBeepAt = 0;
   private nextStepAt = 0;
+  private nextSquirrelAt = 0;
 
   private activeTreasure: Treasure | null = null;
   private actionIcon = '';
@@ -64,6 +88,7 @@ export class ForestScene extends Phaser.Scene {
   private backpackButton!: RoundButton;
   private soundButton!: RoundButton;
   private counterText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
   private dots: Phaser.GameObjects.Arc[] = [];
   private tapMark!: Phaser.GameObjects.Image;
   private readonly hudZones: HudZone[] = [];
@@ -75,32 +100,39 @@ export class ForestScene extends Phaser.Scene {
   }
 
   create(data: ForestSceneData): void {
-    const saved = save.loadProgress();
-    const seed = data?.seed ?? saved?.seed ?? CONFIG.defaultSeed;
+    const number = data?.level ?? save.loadCurrentLevel();
+    this.level = getLevel(number);
+    save.saveCurrentLevel(this.level.number);
 
-    this.world = generateWorld(seed);
-    this.foundIds = new Set(saved !== null && saved.seed === seed ? saved.found : []);
-    save.saveProgress({ seed, found: [...this.foundIds] });
+    // Текстуры темы печём лениво: наборов три, а лес открывается по одному.
+    generateForestTextures(this, THEMES[this.level.theme].textureSet);
+
+    this.world = generateWorld(this.level);
+    this.foundIds = new Set(save.loadLevelFound(this.level.number));
+    save.saveLevelFound(this.level.number, [...this.foundIds]);
 
     this.buildGround();
     this.buildDecor();
     this.buildTreasures();
+    this.buildCritters();
 
     this.dinoX = this.world.startX;
     this.dinoY = this.world.startY;
     this.dino = new Diplodocus(this, this.dinoX, this.dinoY);
     this.dino.root.setDepth(this.dinoY);
 
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.setBackgroundColor(PALETTE.grassMid);
+    this.cameras.main.setBounds(0, 0, this.world.width, this.world.height);
+    this.cameras.main.setBackgroundColor(THEMES[this.level.theme].colors.groundBase);
     this.cameras.main.startFollow(this.dino.root, true, CONFIG.camera.lerp, CONFIG.camera.lerp);
 
     this.tapMark = this.add.image(0, 0, TEX.TAP_MARK).setVisible(false);
+    this.buildNight();
 
     this.controls = new Controls(this);
     this.buildHud();
     this.bindInput();
     this.updateCounter();
+    this.refreshSecret();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
   }
@@ -109,41 +141,90 @@ export class ForestScene extends Phaser.Scene {
     this.updateMovement(time, delta);
     this.updateHint(time);
     this.updateActionButton();
+    this.updateSquirrels(time, delta);
+    this.critters?.update(time, delta, this.dinoX, this.dinoY);
     this.dino.update(time, delta);
   }
 
   // --- построение мира ---------------------------------------------------
 
   private buildGround(): void {
+    const theme = THEMES[this.level.theme];
     this.add
-      .tileSprite(0, 0, WORLD_WIDTH, WORLD_HEIGHT, TEX.GROUND)
+      .tileSprite(0, 0, this.world.width, this.world.height, this.groundTexture())
       .setOrigin(0, 0)
       .setDepth(-20);
 
     const stream = this.add.graphics().setDepth(-15);
     const points = this.world.stream;
-    stream.lineStyle(104, PALETTE.waterDark, 1);
+    stream.lineStyle(104, theme.colors.waterDark, 1);
     stream.strokePoints(points, false);
-    stream.lineStyle(84, PALETTE.water, 1);
+    stream.lineStyle(84, theme.colors.water, 1);
     stream.strokePoints(points, false);
-    stream.lineStyle(22, PALETTE.waterLight, 0.65);
+    stream.lineStyle(22, theme.colors.waterLight, 0.65);
     stream.strokePoints(
       points.map((point) => ({ x: point.x - 14, y: point.y })),
       false,
     );
   }
 
+  private groundTexture(): string {
+    // Плитка земли лежит в том же наборе, что и весь декор уровня.
+    return themeTexture(TEX.GROUND, this.world.textureSet);
+  }
+
   private buildDecor(): void {
-    for (const spec of this.world.decor) {
+    this.decorObjects = this.world.decor.map((spec) => {
       const object = createForestObject(this, spec);
       if (object.obstacle !== null) this.obstacles.push(object.obstacle);
-    }
+      return object;
+    });
   }
 
   private buildTreasures(): void {
     for (const spec of this.world.treasures) {
-      this.treasures.push(new Treasure(this, spec, this.foundIds.has(spec.id)));
+      this.treasures.push(
+        new Treasure(this, spec, this.foundIds.has(spec.id), this.level.digTaps),
+      );
     }
+  }
+
+  private buildCritters(): void {
+    const theme = THEMES[this.level.theme];
+    this.critters = new Critters(this, theme.critters);
+    for (const spot of this.world.squirrels) {
+      this.squirrels.push(new Squirrel(this, spot.x, spot.y));
+    }
+    if (theme.fallingLeaves) this.buildFallingLeaves();
+  }
+
+  /** Осенний листопад: частицы в экранных координатах, чтобы листья всегда были в кадре. */
+  private buildFallingLeaves(): void {
+    for (const texture of TEX.FALLING_LEAF) {
+      const leaves = this.add.particles(0, -40, texture, {
+        x: { min: 0, max: GAME_WIDTH },
+        speedY: { min: 26, max: 58 },
+        speedX: { min: -24, max: 24 },
+        rotate: { min: -180, max: 180 },
+        lifespan: 14000,
+        scale: { min: 0.7, max: 1.1 },
+        alpha: { min: 0.75, max: 1 },
+        frequency: 900,
+        quantity: 1,
+      });
+      leaves.setScrollFactor(0).setDepth(WEATHER_DEPTH);
+    }
+  }
+
+  /** Ночь — мягкая синяя вуаль поверх мира; интерфейс остаётся ярким. */
+  private buildNight(): void {
+    const ambient = THEMES[this.level.theme].ambient;
+    if (ambient === null) return;
+    this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, ambient.color, ambient.alpha)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(NIGHT_DEPTH);
   }
 
   // --- интерфейс ---------------------------------------------------------
@@ -162,7 +243,7 @@ export class ForestScene extends Phaser.Scene {
     this.actionIcon = TEX.ICON_SHOVEL;
     this.hudZones.push({ x: actionX, y: actionY, radius: CONFIG.ui.buttonRadius + 24 });
 
-    // Звук — слева сверху.
+    // Звук — слева сверху, рядом цифра текущего леса.
     const soundX = small + pad;
     const soundY = small + pad;
     this.soundButton = createRoundButton(
@@ -179,7 +260,17 @@ export class ForestScene extends Phaser.Scene {
     this.pinToScreen(this.soundButton.container);
     this.hudZones.push({ x: soundX, y: soundY, radius: small + 20 });
 
-    // Справа сверху — счётчик «сколько из восьми» и рюкзак.
+    this.levelText = createText(
+      this,
+      soundX + small + 56,
+      soundY,
+      String(this.level.number),
+      CONFIG.ui.fontSizeBig,
+    );
+    this.levelText.setOrigin(0.5, 0.5);
+    this.pinToScreen(this.levelText);
+
+    // Справа сверху — счётчик «сколько из скольких» и рюкзак.
     const panelWidth = 410;
     const panelHeight = 136;
     const panelX = GAME_WIDTH - panelWidth / 2 - pad * 0.6;
@@ -187,32 +278,11 @@ export class ForestScene extends Phaser.Scene {
     const panel = createPanel(this, panelX, panelY, panelWidth, panelHeight);
     this.pinToScreen(panel);
 
-    this.counterText = createText(
-      this,
-      panelX - 70,
-      panelY - 16,
-      '',
-      CONFIG.ui.fontSizeBig,
-      PALETTE.uiText,
-    );
+    this.counterText = createText(this, panelX - 70, panelY - 18, '', CONFIG.ui.fontSizeBig, PALETTE.uiText);
     this.counterText.setOrigin(0.5, 0.5);
     this.pinToScreen(this.counterText);
 
-    const dotsCenterX = panelX - 70;
-    const dotsY = panelY + 44;
-    const spacing = 30;
-    const total = this.world.treasures.length;
-    this.dots = [];
-    for (let i = 0; i < total; i += 1) {
-      const dot = this.add.circle(
-        dotsCenterX + (i - (total - 1) / 2) * spacing,
-        dotsY,
-        11,
-        PALETTE.uiButtonCalm,
-      );
-      this.pinToScreen(dot);
-      this.dots.push(dot);
-    }
+    this.buildDots(panelX - 70, panelY + 42);
 
     const backpackX = panelX + panelWidth / 2 - small - 10;
     this.backpackButton = createRoundButton(
@@ -227,6 +297,27 @@ export class ForestScene extends Phaser.Scene {
     this.backpackPoint = { x: backpackX, y: panelY };
     // Панель прямоугольная — у неё отдельная проверка в isOverHud.
     this.hudPanel = { x: panelX, y: panelY, width: panelWidth, height: panelHeight };
+  }
+
+  /** Точки по числу кладов: при большом количестве — в два ряда. */
+  private buildDots(centerX: number, y: number): void {
+    const total = this.world.treasures.length;
+    const perRow = total > 8 ? Math.ceil(total / 2) : total;
+    const spacing = 28;
+    this.dots = [];
+    for (let i = 0; i < total; i += 1) {
+      const row = Math.floor(i / perRow);
+      const column = i % perRow;
+      const inRow = Math.min(perRow, total - row * perRow);
+      const dot = this.add.circle(
+        centerX + (column - (inRow - 1) / 2) * spacing,
+        y + row * 24 - (total > perRow ? 10 : 0),
+        9,
+        PALETTE.uiButtonCalm,
+      );
+      this.pinToScreen(dot);
+      this.dots.push(dot);
+    }
   }
 
   /** HUD не ездит с камерой и всегда поверх леса. */
@@ -245,7 +336,8 @@ export class ForestScene extends Phaser.Scene {
     this.world.treasures.forEach((spec, index) => {
       const dot = this.dots[index];
       if (dot === undefined) return;
-      dot.setFillStyle(this.foundIds.has(spec.id) ? PALETTE.gold : PALETTE.uiButtonCalm);
+      const found = this.foundIds.has(spec.id);
+      dot.setFillStyle(found ? PALETTE.gold : PALETTE.uiButtonCalm);
     });
   }
 
@@ -322,11 +414,11 @@ export class ForestScene extends Phaser.Scene {
       // диплодок иначе мог бы «перепрыгнуть» ствол целиком.
       const step = Math.min((CONFIG.dino.speed * delta) / 1000, CONFIG.dino.bodyRadius * 0.8);
       const inset = CONFIG.world.margin * 0.5;
-      const nextX = clamp(this.dinoX + (vx / length) * step, inset, WORLD_WIDTH - inset);
+      const nextX = clamp(this.dinoX + (vx / length) * step, inset, this.world.width - inset);
       const nextY = clamp(
         this.dinoY + (vy / length) * step * VERTICAL_SPEED_FACTOR,
         inset + 40,
-        WORLD_HEIGHT - inset,
+        this.world.height - inset,
       );
       const resolved = pushOutOfObstacles(nextX, nextY, CONFIG.dino.bodyRadius, this.obstacles);
       this.dinoX = resolved.x;
@@ -343,9 +435,19 @@ export class ForestScene extends Phaser.Scene {
     this.dino.setWalking(moving, vx);
   }
 
+  /** Клад считается «активным», пока не найден; секретный — только когда найдено всё. */
+  private isActive = (spec: { id: string; kind: TreasureKind }): boolean => {
+    if (this.foundIds.has(spec.id)) return false;
+    return spec.kind !== 'secret' || this.secretLit;
+  };
+
   private updateHint(time: number): void {
-    const state = computeHotCold(this.dinoX, this.dinoY, this.world.treasures, (id) =>
-      this.foundIds.has(id),
+    const state = computeHotCold(
+      this.dinoX,
+      this.dinoY,
+      this.world.treasures,
+      this.isActive,
+      this.level.hintMaxDistance,
     );
     this.dino.setHintIntensity(state.intensity);
 
@@ -358,7 +460,36 @@ export class ForestScene extends Phaser.Scene {
     this.nextBeepAt = time + state.beepIntervalMs;
   }
 
-  /** Кнопка действия сама подстраивается: лопата, веточка или «пока нечего». */
+  /** Подошёл к белке — она подпрыгивает и показывает лапкой на ближайший клад. */
+  private updateSquirrels(time: number, delta: number): void {
+    for (const squirrel of this.squirrels) {
+      squirrel.update(time, delta);
+      if (this.busy || time < this.nextSquirrelAt || squirrel.pointing) continue;
+      if (Math.hypot(squirrel.x - this.dinoX, squirrel.y - this.dinoY) > SQUIRREL_RADIUS) continue;
+
+      const target = this.nearestActive();
+      if (target === null) continue;
+      squirrel.point(Math.atan2(target.spec.y - squirrel.y, target.spec.x - squirrel.x));
+      audio.play('tap', { pitch: 2.4, volume: 0.5 });
+      this.nextSquirrelAt = time + 4000;
+    }
+  }
+
+  private nearestActive(): Treasure | null {
+    let best: Treasure | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const treasure of this.treasures) {
+      if (!this.isActive(treasure.spec)) continue;
+      const d = Math.hypot(treasure.spec.x - this.dinoX, treasure.spec.y - this.dinoY);
+      if (d < bestDistance) {
+        best = treasure;
+        bestDistance = d;
+      }
+    }
+    return best;
+  }
+
+  /** Кнопка действия сама подстраивается под вид ближайшего клада. */
   private updateActionButton(): void {
     const near = this.busy ? this.activeTreasure : this.findActionable();
     if (near !== this.activeTreasure) {
@@ -368,7 +499,7 @@ export class ForestScene extends Phaser.Scene {
     }
 
     const enabled = near !== null && !this.busy;
-    const icon = near?.spec.kind === 'tree' ? TEX.ICON_LEAF : TEX.ICON_SHOVEL;
+    const icon = near === null ? TEX.ICON_SHOVEL : ACTION_ICON[near.spec.kind];
 
     if (icon !== this.actionIcon) {
       this.actionButton.setIcon(icon);
@@ -385,7 +516,7 @@ export class ForestScene extends Phaser.Scene {
     let best: Treasure | null = null;
     let bestDistance: number = CONFIG.treasures.actionRadius;
     for (const treasure of this.treasures) {
-      if (treasure.found) continue;
+      if (!this.isActive(treasure.spec)) continue;
       const distance = Math.hypot(treasure.spec.x - this.dinoX, treasure.spec.y - this.dinoY);
       if (distance <= bestDistance) {
         best = treasure;
@@ -402,21 +533,31 @@ export class ForestScene extends Phaser.Scene {
     const treasure = this.activeTreasure;
     if (treasure === null || treasure.found) return;
 
-    if (treasure.spec.kind === 'ground') {
-      this.dino.playDigStroke();
-      audio.play('dig');
-      audio.play('dirt', { volume: 0.6 });
-      if (treasure.dig()) void this.revealTreasure(treasure, false);
-      return;
+    switch (treasure.spec.kind) {
+      case 'ground':
+        this.dino.playDigStroke();
+        audio.play('dig');
+        audio.play('dirt', { volume: 0.6 });
+        if (treasure.dig()) void this.revealTreasure(treasure, false);
+        return;
+      case 'tree':
+        void this.pickFromTree(treasure);
+        return;
+      case 'rock':
+        void this.pushRock(treasure);
+        return;
+      case 'water':
+        void this.diveForTreasure(treasure);
+        return;
+      case 'secret':
+        void this.revealTreasure(treasure, false);
+        return;
     }
-    void this.pickFromTree(treasure);
   }
 
   /** Фирменная механика: диплодок тянет шею в крону и достаёт сундучок. */
   private async pickFromTree(treasure: Treasure): Promise<void> {
-    this.busy = true;
-    this.moveTarget = null;
-    this.dino.setWalking(false);
+    this.startAction();
     audio.play('whoosh');
 
     const reach = this.dino.reachToCrown(treasure.spec.crownX, treasure.spec.crownY);
@@ -428,9 +569,70 @@ export class ForestScene extends Phaser.Scene {
     await this.revealTreasure(treasure, true);
   }
 
-  private async revealTreasure(treasure: Treasure, chestReady: boolean): Promise<void> {
+  /** Толкнуть камень головой: камень откатывается, под ним сундучок. */
+  private async pushRock(treasure: Treasure): Promise<void> {
+    this.startAction();
+    const push = this.dino.playPush(treasure.spec.crownX);
+    await this.wait(400);
+    audio.play('dig', { pitch: 0.7 });
+
+    const rock = this.decorObjects[treasure.spec.decorIndex];
+    if (rock !== undefined) {
+      const away = treasure.spec.crownX >= this.dinoX ? 1 : -1;
+      // Камень больше не мешает ходить.
+      if (rock.obstacle !== null) rock.obstacle.radius = 0;
+      this.tweens.add({
+        targets: rock.image,
+        x: rock.image.x + 110 * away,
+        angle: 55 * away,
+        duration: 620,
+        ease: 'Cubic.easeOut',
+      });
+      const dust = this.add.particles(rock.image.x, rock.image.y, TEX.DIRT_CHUNK, {
+        speed: { min: 60, max: 170 },
+        angle: { min: 200, max: 340 },
+        gravityY: 700,
+        lifespan: 600,
+        scale: { start: 0.9, end: 0.4 },
+        quantity: 8,
+        emitting: false,
+      });
+      dust.setDepth(rock.image.y + 1);
+      dust.explode(8);
+      this.time.delayedCall(800, () => dust.destroy());
+    }
+
+    await push;
+    await treasure.popChest();
+    audio.play('chest', { volume: 0.8 });
+    await this.revealTreasure(treasure, true);
+  }
+
+  /** Опустить голову в ручей и достать клад со дна. */
+  private async diveForTreasure(treasure: Treasure): Promise<void> {
+    this.startAction();
+    audio.play('whoosh', { volume: 0.8 });
+
+    const dip = this.dino.playDip(treasure.spec.crownX, treasure.spec.crownY);
+    await this.wait(420);
+    treasure.splash();
+    audio.play('dirt', { volume: 0.5, pitch: 1.6 });
+    await this.wait(300);
+    await treasure.popChest();
+    audio.play('chest', { volume: 0.7 });
+    await dip;
+    await treasure.moveChestTo(this.dinoX + 40, this.dinoY + 6);
+    await this.revealTreasure(treasure, true);
+  }
+
+  private startAction(): void {
     this.busy = true;
+    this.moveTarget = null;
     this.dino.setWalking(false);
+  }
+
+  private async revealTreasure(treasure: Treasure, chestReady: boolean): Promise<void> {
+    this.startAction();
 
     if (!chestReady) {
       await treasure.popChest();
@@ -438,13 +640,14 @@ export class ForestScene extends Phaser.Scene {
     }
     treasure.openChest();
     this.dino.playJoy();
-    audio.play('fanfare');
+    audio.play(treasure.spec.kind === 'secret' ? 'win' : 'fanfare');
     await this.wait(320);
 
     // Предмет крупно в центре экрана: главное событие игры.
     const item = getTreasureItem(treasure.spec.itemId);
     const centerX = GAME_WIDTH / 2;
     const centerY = GAME_HEIGHT / 2 - 40;
+    const secret = treasure.spec.kind === 'secret';
 
     const glow = this.add
       .image(centerX, centerY, TEX.GLOW)
@@ -461,8 +664,20 @@ export class ForestScene extends Phaser.Scene {
     const label = createText(this, centerX, centerY + 180, item.name, CONFIG.ui.fontSizeBig);
     label.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(REVEAL_DEPTH).setAlpha(0);
 
-    this.tweens.add({ targets: glow, alpha: 0.5, scale: 2.6, duration: 500, ease: 'Sine.easeOut' });
-    this.tweens.add({ targets: picture, scale: 1.05, alpha: 1, duration: 420, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: glow,
+      alpha: secret ? 0.7 : 0.5,
+      scale: secret ? 3.4 : 2.6,
+      duration: 500,
+      ease: 'Sine.easeOut',
+    });
+    this.tweens.add({
+      targets: picture,
+      scale: secret ? 1.3 : 1.05,
+      alpha: 1,
+      duration: 420,
+      ease: 'Back.easeOut',
+    });
     this.tweens.add({ targets: label, alpha: 1, duration: 360, delay: 160 });
     const wobble = this.tweens.add({
       targets: picture,
@@ -505,16 +720,38 @@ export class ForestScene extends Phaser.Scene {
 
     treasure.collect();
     this.foundIds.add(treasure.spec.id);
-    save.saveProgress({ seed: this.world.seed, found: [...this.foundIds] });
+    save.saveLevelFound(this.level.number, [...this.foundIds]);
     save.addToCollection([treasure.spec.itemId]);
     this.updateCounter();
     this.activeTreasure = null;
     this.busy = false;
 
-    if (this.foundIds.size >= this.world.treasures.length) {
-      await this.wait(800);
-      this.scene.start(SCENE.VICTORY, { itemIds: this.world.itemIds });
+    if (secret) {
+      save.markLevelComplete(this.level.number);
+      await this.wait(700);
+      this.scene.start(SCENE.VICTORY, {
+        level: this.level.number,
+        itemIds: this.world.itemIds.filter((id) => id !== SECRET_ITEM_ID),
+        crownItemId: SECRET_ITEM_ID,
+      });
+      return;
     }
+    this.refreshSecret();
+  }
+
+  /** Когда найдено всё обычное — в лесу зажигается секретный сундук. */
+  private refreshSecret(): void {
+    if (this.secretLit) return;
+    const regularLeft = this.world.treasures.some(
+      (spec) => spec.kind !== 'secret' && !this.foundIds.has(spec.id),
+    );
+    if (regularLeft) return;
+
+    this.secretLit = true;
+    const secret = this.treasures.find((treasure) => treasure.spec.kind === 'secret');
+    if (secret === undefined || secret.found) return;
+    secret.lightBeacon();
+    audio.play('found', { pitch: 0.7 });
   }
 
   private openCollection(): void {
@@ -523,7 +760,11 @@ export class ForestScene extends Phaser.Scene {
       .filter((spec) => this.foundIds.has(spec.id))
       .map((spec) => spec.itemId);
     this.scene.pause();
-    this.scene.launch(SCENE.COLLECTION, { itemIds: this.world.itemIds, foundItemIds });
+    this.scene.launch(SCENE.COLLECTION, {
+      level: this.level.number,
+      itemIds: this.world.itemIds,
+      foundItemIds,
+    });
   }
 
   private wait(ms: number): Promise<void> {
@@ -535,8 +776,13 @@ export class ForestScene extends Phaser.Scene {
   private cleanup(): void {
     this.controls.destroy();
     for (const treasure of this.treasures) treasure.destroy();
+    for (const squirrel of this.squirrels) squirrel.destroy();
+    this.critters?.destroy();
+    this.critters = null;
     this.treasures.length = 0;
+    this.squirrels.length = 0;
     this.obstacles.length = 0;
+    this.decorObjects = [];
     this.dino.destroy();
   }
 }
