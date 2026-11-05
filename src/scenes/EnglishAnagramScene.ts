@@ -14,7 +14,7 @@ import { rowFit } from '../art/layout';
 import { audio } from '../audio/AudioEngine';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { englishSet, type EnglishWord } from '../data/english';
-import { addLetterInput } from '../systems/letterInput';
+import { addLetterInput, pickByKey } from '../systems/letterInput';
 import { makeRng } from '../systems/rng';
 import { speech } from '../systems/speech';
 import { SCENE, type EnglishGameData } from '../types';
@@ -76,6 +76,7 @@ export class EnglishAnagramScene extends Phaser.Scene {
     this.setIndex = data.setIndex;
     this.words = englishSet(data.setIndex).words;
     this.wordIndex = 0;
+    this.word = '';
     this.wordDone = false;
     this.finished = false;
     this.dots = null;
@@ -197,13 +198,8 @@ export class EnglishAnagramScene extends Phaser.Scene {
    */
   private typeLetter(candidates: string[]): void {
     if (this.wordDone || this.finished) return;
-    for (const char of candidates) {
-      const tile = this.tiles.find((one) => one.slot < 0 && one.char === char);
-      if (tile !== undefined) {
-        this.onTileTap(tile);
-        return;
-      }
-    }
+    const tile = pickByKey(candidates, this.tiles);
+    if (tile !== undefined) this.onTileTap(tile);
   }
 
   /** Backspace: вниз возвращается последняя поставленная буква. */

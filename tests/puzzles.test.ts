@@ -10,7 +10,8 @@
  * и не наезжает на палитру. На 6×6 клеток вдвое больше, и это уже не очевидно.
  */
 import { describe, expect, it } from 'vitest';
-import { letterCandidates } from '../src/systems/letterInput';
+import { letterCandidates, pickByKey } from '../src/systems/letterInput';
+import { ENGLISH_SETS } from '../src/data/english';
 import {
   PATTERN_ROW,
   SEQUENCE_PADS,
@@ -21,7 +22,7 @@ import {
 } from '../src/art/layout';
 import { SUDOKU_BOARD, sudokuLayout, sudokuToolSpot } from '../src/art/sudokuLayout';
 import { PUZZLE_PANEL as PANEL } from '../src/art/layout';
-import { SUDOKU_LEVELS, SUDOKU_SEEDS, sudokuLevel, sudokuSeed } from '../src/data/quest';
+import { SUDOKU_LEVELS, SUDOKU_SEEDS, WORD_TIERS, sudokuLevel, sudokuSeed } from '../src/data/quest';
 import {
   PATTERN_CELLS,
   PATTERN_MAX_LEVEL,
@@ -503,5 +504,72 @@ describe('буквы с клавиатуры', () => {
     for (const letter of alphabet) {
       expect(reachable.has(letter), `буква ${letter} недостижима`).toBe(true);
     }
+  });
+
+  /**
+   * Клавиши записаны руками, по рядам физической клавиатуры, а не взяты из
+   * `RU_BY_LATIN`: иначе тест согласился бы с любой ошибкой в таблице.
+   */
+  const ROWS_LATIN = ["qwertyuiop[]", "asdfghjkl;'", 'zxcvbnm,.'];
+  const ROWS_RUSSIAN = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭ', 'ЯЧСМИТЬБЮ'];
+  /** Клавиша латинской раскладки → русская буква на ней. */
+  const RUSSIAN_ON_KEY = new Map<string, string>();
+  /** Латинская буква → что напечатает та же клавиша в русской раскладке. */
+  const KEY_IN_RUSSIAN = new Map<string, string>();
+  ROWS_LATIN.forEach((row, r) => {
+    [...row].forEach((key, i) => {
+      const ru = ROWS_RUSSIAN[r]?.charAt(i) ?? '';
+      RUSSIAN_ON_KEY.set(ru, key);
+      if (/[a-z]/.test(key)) KEY_IN_RUSSIAN.set(key, ru.toLowerCase());
+    });
+  });
+
+  const tilesOf = (word: string): { char: string; slot: number }[] =>
+    [...word].map((char) => ({ char, slot: -1 }));
+
+  it('каждая буква каждого английского слова выбирается своей клавишей в обеих раскладках', () => {
+    let checked = 0;
+    for (const set of ENGLISH_SETS) {
+      for (const { en } of set.words) {
+        for (const letter of en) {
+          const tiles = tilesOf(en);
+          const russianKey = KEY_IN_RUSSIAN.get(letter);
+          expect(russianKey, `нет русской клавиши для ${letter}`).toBeDefined();
+          for (const key of [letter, letter.toUpperCase(), russianKey ?? '']) {
+            const tile = pickByKey(letterCandidates(key), tiles);
+            expect(tile?.char, `слово ${en}, клавиша ${key}`).toBe(letter);
+            checked += 1;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
+
+  it('каждая буква каждого русского слова квеста выбирается своей клавишей в обеих раскладках', () => {
+    let checked = 0;
+    for (const tier of WORD_TIERS) {
+      for (const { word } of tier) {
+        for (const letter of word) {
+          const latinKey = RUSSIAN_ON_KEY.get(letter);
+          expect(latinKey, `нет клавиши для ${letter}`).toBeDefined();
+          for (const key of [letter, letter.toLowerCase(), latinKey ?? '']) {
+            const tile = pickByKey(letterCandidates(key), tilesOf(word));
+            expect(tile?.char, `слово ${word}, клавиша ${key}`).toBe(letter);
+            checked += 1;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
+
+  it('занятая плашка не выбирается, пока есть свободная с той же буквой', () => {
+    const tiles = [
+      { char: 'o', slot: 3 },
+      { char: 'o', slot: -1 },
+    ];
+    expect(pickByKey(letterCandidates('o'), tiles)).toBe(tiles[1]);
+    expect(pickByKey(letterCandidates('z'), tiles)).toBeUndefined();
   });
 });

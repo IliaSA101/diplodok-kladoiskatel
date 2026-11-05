@@ -14,6 +14,7 @@ import { themeTexture, THEMES } from '../art/themes';
 import { ForestHud } from './ForestHud';
 import { addFallingLeaves, addNightVeil } from './forestWeather';
 import { showFound } from './forestReveal';
+import { rollRockAway } from './forestRock';
 import { audio } from '../audio/AudioEngine';
 import { CONFIG } from '../config';
 import { getLevel, type LevelSpec } from '../data/levels';
@@ -34,10 +35,6 @@ const STEP_SOUND_INTERVAL = 330;
 /** На каком расстоянии белка замечает диплодока. */
 const SQUIRREL_RADIUS = 190;
 
-/**
- * Глубина у объектов леса равна их координате y (до 2880), поэтому ночь,
- * интерфейс и экран находки живут заведомо выше.
- */
 /** Какая иконка на кнопке действия для каждого вида клада. */
 const ACTION_ICON: Record<TreasureKind, string> = {
   ground: TEX.ICON_SHOVEL,
@@ -76,6 +73,30 @@ export class ForestScene extends Phaser.Scene {
 
   constructor() {
     super(SCENE.FOREST);
+  }
+
+  /**
+   * Phaser зовёт `init` и `create` у того же объекта при каждом входе, а поля
+   * класса остаются как были: `busy = true` от «назад» замораживал следующий
+   * лес, зажжённый секретный сундук горел в новом лесу сразу. Поэтому всё
+   * состояние одного захода сбрасывается здесь (стережёт tests/sceneState).
+   */
+  init(): void {
+    this.obstacles.length = 0;
+    this.decorObjects = [];
+    this.treasures.length = 0;
+    this.squirrels.length = 0;
+    this.critters = null;
+    this.foundIds = new Set<string>();
+    this.dinoX = 0;
+    this.dinoY = 0;
+    this.moveTarget = null;
+    this.busy = false;
+    this.secretLit = false;
+    this.nextBeepAt = 0;
+    this.nextStepAt = 0;
+    this.nextSquirrelAt = 0;
+    this.activeTreasure = null;
   }
 
   create(data: ForestSceneData): void {
@@ -183,7 +204,6 @@ export class ForestScene extends Phaser.Scene {
     if (theme.fallingLeaves) addFallingLeaves(this);
   }
 
-  /** Осенний листопад: частицы в экранных координатах, чтобы листья всегда были в кадре. */
   // --- интерфейс ---------------------------------------------------------
 
   /** Какие клады уже найдены — в том же порядке, что точки в панели. */
@@ -412,28 +432,7 @@ export class ForestScene extends Phaser.Scene {
 
     const rock = this.decorObjects[treasure.spec.decorIndex];
     if (rock !== undefined) {
-      const away = treasure.spec.crownX >= this.dinoX ? 1 : -1;
-      // Камень больше не мешает ходить.
-      if (rock.obstacle !== null) rock.obstacle.radius = 0;
-      this.tweens.add({
-        targets: rock.image,
-        x: rock.image.x + 110 * away,
-        angle: 55 * away,
-        duration: 620,
-        ease: 'Cubic.easeOut',
-      });
-      const dust = this.add.particles(rock.image.x, rock.image.y, TEX.DIRT_CHUNK, {
-        speed: { min: 60, max: 170 },
-        angle: { min: 200, max: 340 },
-        gravityY: 700,
-        lifespan: 600,
-        scale: { start: 0.9, end: 0.4 },
-        quantity: 8,
-        emitting: false,
-      });
-      dust.setDepth(rock.image.y + 1);
-      dust.explode(8);
-      this.time.delayedCall(800, () => dust.destroy());
+      rollRockAway(this, rock, treasure.spec.crownX >= this.dinoX ? 1 : -1);
     }
 
     await push;
@@ -492,9 +491,9 @@ export class ForestScene extends Phaser.Scene {
     save.addToCollection([treasure.spec.itemId]);
     this.showProgress();
     this.activeTreasure = null;
-    this.busy = false;
 
     if (treasure.spec.kind === 'secret') {
+      // busy остаётся поднятым: «назад» в эти 700 мс уводила бы мимо победы.
       save.markLevelComplete(this.level.number);
       await this.wait(700);
       this.scene.start(SCENE.VICTORY, {
@@ -504,6 +503,7 @@ export class ForestScene extends Phaser.Scene {
       });
       return;
     }
+    this.busy = false;
     this.refreshSecret();
   }
 
@@ -554,16 +554,12 @@ export class ForestScene extends Phaser.Scene {
     });
   }
 
+  /** Только уничтожает объекты; ссылки на них обнуляет `init` следующего захода. */
   private cleanup(): void {
     this.controls.destroy();
     for (const treasure of this.treasures) treasure.destroy();
     for (const squirrel of this.squirrels) squirrel.destroy();
     this.critters?.destroy();
-    this.critters = null;
-    this.treasures.length = 0;
-    this.squirrels.length = 0;
-    this.obstacles.length = 0;
-    this.decorObjects = [];
     this.dino.destroy();
   }
 }

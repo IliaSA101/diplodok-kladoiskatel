@@ -243,5 +243,47 @@
     "find": "  stemAt: 0.8,",
     "replace": "  stemAt: 0.3,",
     "note": "черешок листа полез на цифру текущего леса в меню"
+  },
+  {
+    "id": "forest-busy-not-reset",
+    "file": "src/scenes/ForestScene.ts",
+    "find": "    this.busy = false;\n    this.secretLit = false;\n    this.nextBeepAt = 0;",
+    "replace": "    this.secretLit = false;\n    this.nextBeepAt = 0;",
+    "note": "после «назад» следующий вход в лес замёрзший: клики, ходьба и кнопки молчат"
+  },
+  {
+    "id": "forest-secret-not-reset",
+    "file": "src/scenes/ForestScene.ts",
+    "find": "    this.busy = false;\n    this.secretLit = false;\n    this.nextBeepAt = 0;",
+    "replace": "    this.busy = false;\n    this.nextBeepAt = 0;",
+    "note": "секретный сундук, зажжённый в прошлом лесу, открывается в новом без поиска кладов"
+  },
+  {
+    "id": "letter-case-ignored",
+    "file": "src/systems/letterInput.ts",
+    "find": "one.char.toUpperCase() === candidate.toUpperCase()",
+    "replace": "one.char === candidate",
+    "note": "в «Make a word» плашки строчные, клавиатура не находит ни одной буквы"
+  },
+  {
+    "id": "album-keyback-not-reset",
+    "file": "src/scenes/AlbumScene.ts",
+    "find": "    this.leaving = false;\n    this.keyBack = null;\n  }",
+    "replace": "    this.leaving = false;\n  }",
+    "note": "после выхода из альбома Esc и пробел в нём зовут обработчик прошлого захода"
+  },
+  {
+    "id": "levels-endless-press-not-reset",
+    "file": "src/scenes/LevelSelectScene.ts",
+    "find": "    this.levelPresses = new Map();\n    this.endlessPress = null;\n  }",
+    "replace": "    this.levelPresses = new Map();\n  }",
+    "note": "в «Выбери лес» клавиша бесконечного леса нажимает кнопку уничтоженного экрана"
+  },
+  {
+    "id": "english-word-not-reset",
+    "file": "src/scenes/EnglishAnagramScene.ts",
+    "find": "    this.wordIndex = 0;\n    this.word = '';\n",
+    "replace": "    this.wordIndex = 0;\n",
+    "note": "в «Make a word» кнопка-динамик на новом заходе до первого слова читает слово прошлой игры"
   }
 ]

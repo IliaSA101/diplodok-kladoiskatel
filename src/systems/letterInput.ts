@@ -63,6 +63,28 @@ export function letterCandidates(key: string): string[] {
   return out;
 }
 
+/**
+ * Плашка, которую берёт клавиша: первая свободная (`slot < 0`) с такой буквой.
+ *
+ * Кандидаты приходят заглавными (`letterCandidates`), а плашки английской
+ * анаграммы строчные, как слова в `data/english.ts`. Сравнение «как есть»
+ * не совпадало ни разу, и «Make a word» не отзывалась на клавиатуру вовсе —
+ * поэтому регистр тут не различается. Кандидатов перебираем по порядку:
+ * первый, для кого плашка нашлась, и есть ответ.
+ */
+export function pickByKey<T extends { char: string; slot: number }>(
+  candidates: readonly string[],
+  tiles: readonly T[],
+): T | undefined {
+  for (const candidate of candidates) {
+    const tile = tiles.find(
+      (one) => one.slot < 0 && one.char.toUpperCase() === candidate.toUpperCase(),
+    );
+    if (tile !== undefined) return tile;
+  }
+  return undefined;
+}
+
 export interface LetterInput {
   /** Нажата буква: кандидаты от более вероятного к менее. */
   type: (candidates: string[]) => void;

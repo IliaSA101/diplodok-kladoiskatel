@@ -17,7 +17,7 @@ import { wordSet } from '../data/quest';
 import type { WordPuzzle } from '../data/quest';
 import { addBackToMap, addPuzzleBackdrop, finishPuzzle, notePuzzleMistake } from '../systems/quest';
 import type { PuzzleSceneData } from '../systems/quest';
-import { addLetterInput } from '../systems/letterInput';
+import { addLetterInput, pickByKey } from '../systems/letterInput';
 import { makeRng } from '../systems/rng';
 import { SCENE } from '../types';
 
@@ -91,6 +91,7 @@ export class PuzzleWordScene extends Phaser.Scene {
     this.puzzleData = data;
     this.words = wordSet(data.step, data.variant);
     this.wordIndex = 0;
+    this.word = '';
     this.finished = false;
     this.wordDone = false;
     this.nextTimer = null;
@@ -239,13 +240,8 @@ export class PuzzleWordScene extends Phaser.Scene {
    */
   private typeLetter(candidates: string[]): void {
     if (this.wordDone || this.finished) return;
-    for (const char of candidates) {
-      const tile = this.tiles.find((one) => one.slot < 0 && one.char === char);
-      if (tile !== undefined) {
-        this.onTileTap(tile);
-        return;
-      }
-    }
+    const tile = pickByKey(candidates, this.tiles);
+    if (tile !== undefined) this.onTileTap(tile);
   }
 
   /** Backspace: вниз возвращается последняя поставленная буква. */

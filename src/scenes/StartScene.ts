@@ -76,6 +76,8 @@ export class StartScene extends Phaser.Scene {
     this.dino = null;
     this.keyHandler = null;
     this.keyUnlock = null;
+    this.pickForest = () => undefined;
+    this.pickFootball = () => undefined;
     this.pickEnglish = () => undefined;
   }
 

@@ -109,6 +109,7 @@ export class PuzzleMahjongScene extends Phaser.Scene {
     this.selected = null;
     this.busy = false;
     this.finished = false;
+    this.shuffles = 0;
     this.dots = null;
     const pairs = mahjongPairs(data.step);
     this.pairsTotal = pairs;
