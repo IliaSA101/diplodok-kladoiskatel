@@ -1,0 +1,247 @@
+[
+  {
+    "id": "levels-dig-zero",
+    "file": "src/data/levels.ts",
+    "find": "treasures: { ground: 5, tree: 3, rock: 0, water: 0 },\n    digTaps: 3,",
+    "replace": "treasures: { ground: 5, tree: 3, rock: 0, water: 0 },\n    digTaps: 0,",
+    "note": "клад в земле открывается без копания"
+  },
+  {
+    "id": "levels-seed-duplicate",
+    "file": "src/data/levels.ts",
+    "find": "seed: 777001,",
+    "replace": "seed: 20260101,",
+    "note": "второй лес стал копией первого"
+  },
+  {
+    "id": "levels-secret-lost",
+    "file": "src/data/levels.ts",
+    "find": "return ground + tree + rock + water + 1;",
+    "replace": "return ground + tree + rock + water;",
+    "note": "секретный клад не считается: альбом леса не собрать"
+  },
+  {
+    "id": "levels-no-clamp",
+    "file": "src/data/levels.ts",
+    "find": "const index = Math.max(1, Math.floor(number)) - 1;",
+    "replace": "const index = Math.floor(number) - 1;",
+    "note": "нулевой номер леса роняет выбор уровня"
+  },
+  {
+    "id": "rng-seed-ignored",
+    "file": "src/systems/rng.ts",
+    "find": "let state = (seed >>> 0) || 1;",
+    "replace": "let state = 1;",
+    "note": "все леса получаются одинаковыми"
+  },
+  {
+    "id": "rng-range-broken",
+    "file": "src/systems/rng.ts",
+    "find": "min + next() * (max - min);",
+    "replace": "min + next() * max;",
+    "note": "числа уходят за заданный предел: декор и клады за краем мира"
+  },
+  {
+    "id": "rng-shuffle-nothing",
+    "file": "src/systems/rng.ts",
+    "find": "const j = int(0, i);",
+    "replace": "const j = i;",
+    "note": "перемешивания нет: предметы всегда в одном порядке"
+  },
+  {
+    "id": "worldgen-crown-above-sky",
+    "file": "src/systems/worldGen.ts",
+    "find": "if (spec.y - crownOffsetY < 200) continue;",
+    "replace": "if (spec.y - crownOffsetY < -5000) continue;",
+    "note": "крона выше неба: до клада не дотянуться"
+  },
+  {
+    "id": "worldgen-same-ids",
+    "file": "src/systems/worldGen.ts",
+    "find": "id: 't' + index,",
+    "replace": "id: 't0',",
+    "note": "у кладов одинаковые id: прогресс считается не тот"
+  },
+  {
+    "id": "worldgen-no-fallback",
+    "file": "src/systems/worldGen.ts",
+    "find": "const groundNeeded = mix.ground + (mix.tree + mix.rock + mix.water - raw.length);",
+    "replace": "const groundNeeded = mix.ground;",
+    "note": "не разместившиеся клады не добираются землёй: кладов меньше обещанного"
+  },
+  {
+    "id": "worldgen-rock-index-lost",
+    "file": "src/systems/worldGen.ts",
+    "find": "      decorIndex: rock.index,",
+    "replace": "      decorIndex: rock.index + 1000,",
+    "note": "клад под камнем ссылается на несуществующий камень"
+  },
+  {
+    "id": "save-level-zero",
+    "file": "src/systems/save.ts",
+    "find": "return typeof value === 'number' && Number.isFinite(value) && value >= 1",
+    "replace": "return typeof value === 'number' && Number.isFinite(value)",
+    "note": "кнопка «Играть» ведёт в лес с номером 0"
+  },
+  {
+    "id": "save-wrong-level-progress",
+    "file": "src/systems/save.ts",
+    "find": "return readLevels()[String(level)] ?? [];",
+    "replace": "return readLevels()[String(level + 1)] ?? [];",
+    "note": "найденные клады берутся от соседнего леса"
+  },
+  {
+    "id": "save-collection-overwrite",
+    "file": "src/systems/save.ts",
+    "find": "    const all = new Set(save.loadCollection());",
+    "replace": "    const all = new Set<string>();",
+    "note": "музей обнуляется при каждой новой находке"
+  },
+  {
+    "id": "save-mute-ignored",
+    "file": "src/systems/save.ts",
+    "find": "      if (typeof muted === 'boolean') return { muted };",
+    "replace": "      if (typeof muted === 'boolean') return { muted: false };",
+    "note": "выключённый звук включается обратно после перезагрузки"
+  },
+  {
+    "id": "quest-sticker-no-wrap",
+    "file": "src/data/quest.ts",
+    "find": "sticker: TEX.STICKER[index % TEX.STICKER.length] ?? TEX.STICKER[0] ?? '',",
+    "replace": "sticker: TEX.STICKER[index] ?? TEX.STICKER[0] ?? '',",
+    "note": "наклейки кругов 4-6 все превращаются в первую"
+  },
+  {
+    "id": "quest-tier-ignores-step",
+    "file": "src/data/quest.ts",
+    "find": "  const from = Math.min(last, Math.max(0, Math.round(step)));",
+    "replace": "  const from = 0;",
+    "note": "ступень перестаёт поднимать нижнюю границу набора"
+  },
+  {
+    "id": "skill-never-falls",
+    "file": "src/systems/skill.ts",
+    "find": "  if (mistakes >= MISTAKES_BACK || ms >= pace * SLOW_FACTOR) return clamp(here - 1);",
+    "replace": "  // ступень вниз больше не ходит",
+    "note": "ступень растёт, но никогда не падает — застрять наверху можно"
+  },
+  {
+    "id": "skill-jumps-two",
+    "file": "src/systems/skill.ts",
+    "find": "  if (mistakes === 0 && ms <= pace) return clamp(here + 1);",
+    "replace": "  if (mistakes === 0 && ms <= pace) return clamp(here + 2);",
+    "note": "один везучий прогон уносит на две ступени вверх"
+  },
+  {
+    "id": "count-answer-zero",
+    "file": "src/systems/countTask.ts",
+    "find": "      for (let right = 1; right < left; right += 1) {",
+    "replace": "      for (let right = 1; right <= left; right += 1) {",
+    "note": "вычитание доходит до нуля: на табло пример с ответом 0"
+  },
+  {
+    "id": "quest-reset-drops-shared-sticker",
+    "file": "src/systems/questSave.ts",
+    "find": "    write(KEY_STICKERS, read(KEY_STICKERS).filter((key) => kept.has(key)));",
+    "replace": "    const gone = new Set(nodes.map((item) => item.sticker));\n    write(KEY_STICKERS, read(KEY_STICKERS).filter((key) => !gone.has(key)));",
+    "note": "откат круга 4 выносит из альбома наклейку круга 1"
+  },
+  {
+    "id": "sudoku-two-answers-ok",
+    "file": "src/systems/sudokuBoard.ts",
+    "find": "    if (countSolutions(shape, start.slice(), 2) === 1) open -= 1;",
+    "replace": "    if (countSolutions(shape, start.slice(), 2) >= 1) open -= 1;",
+    "note": "поле закрывается до двух решений: ребёнок упирается в тупик"
+  },
+  {
+    "id": "sudoku-box-ignored",
+    "file": "src/systems/sudokuBoard.ts",
+    "find": "    if (r === row || c === col || sameBox) return true;",
+    "replace": "    if (r === row || c === col) return true;",
+    "note": "правило квадрата отключено: судоку становится латинским квадратом"
+  },
+  {
+    "id": "pattern-row-is-flat",
+    "file": "src/systems/patternTask.ts",
+    "find": "      const role = motif[i % motif.length] ?? 0;",
+    "replace": "      const role = motif[0] ?? 0;",
+    "note": "ряд из одинаковых картинок: узора нет, продолжать нечего"
+  },
+  {
+    "id": "sequence-allows-double",
+    "file": "src/systems/sequenceTask.ts",
+    "find": "    if (order[order.length - 1] === pad) continue;",
+    "replace": "    if (order[order.length - 1] === -1) continue;",
+    "note": "два одинаковых огонька подряд: на экране это один долгий"
+  },
+  {
+    "id": "dino-watch-covers-panel",
+    "file": "src/art/dinoLayout.ts",
+    "find": "  height: 420,\n  /** Ширина к росту: рисунок 640×597. */\n  aspect: 640 / 597,\n  /** Середина рисунка по горизонтали. */",
+    "replace": "  height: 900,\n  /** Ширина к росту: рисунок 640×597. */\n  aspect: 640 / 597,\n  /** Середина рисунка по горизонтали. */",
+    "note": "наблюдатель вырос и его голова легла на панель задачки"
+  },
+  {
+    "id": "memory-icons-from-start",
+    "file": "src/data/quest.ts",
+    "find": "  const icons = rng.shuffle(CARD_ICONS.map((_, index) => index)).slice(0, level.groups);",
+    "replace": "  const icons = CARD_ICONS.map((_, index) => index).slice(0, level.groups);",
+    "note": "значки «Запомни пары» всегда с начала списка — у всех узлов один набор"
+  },
+  {
+    "id": "sudoku-seeds-run-out",
+    "file": "src/data/quest.ts",
+    "find": "  return SUDOKU_SEEDS[Math.max(0, Math.round(variant)) % SUDOKU_SEEDS.length] ?? 4201;",
+    "replace": "  return SUDOKU_SEEDS[Math.max(0, Math.round(variant)) % 5] ?? 4201;",
+    "note": "seed'ов снова пять на восемь узлов — варианты 0 и 5 дают одно поле"
+  },
+  {
+    "id": "word-variant-ignored",
+    "file": "src/data/quest.ts",
+    "find": "  const rng = makeRng(5300 + wordTierIndex(step) * 6421 + Math.max(0, Math.round(variant)) * 197);",
+    "replace": "  const rng = makeRng(5300 + wordTierIndex(step) * 6421);",
+    "note": "вариант перестал влиять на слова — все узлы ступени получают одни и те же"
+  },
+  {
+    "id": "quiz-variant-ignored",
+    "file": "src/data/quest.ts",
+    "find": "  const rng = makeRng(9100 + quizTierIndex(step) * 7919 + Math.max(0, Math.round(variant)) * 131);",
+    "replace": "  const rng = makeRng(9100 + quizTierIndex(step) * 7919);",
+    "note": "вариант перестал влиять на вопросы — «от уровней нет усложнения» возвращается"
+  },
+  {
+    "id": "mahjong-variant-ignored",
+    "file": "src/data/quest.ts",
+    "find": "    1000 + Math.max(0, Math.round(variant)) * 37,",
+    "replace": "    1000,",
+    "note": "стол маджонга перестал зависеть от узла — везде один расклад"
+  },
+  {
+    "id": "sudoku-board-touches-panel",
+    "file": "src/art/sudokuLayout.ts",
+    "find": "const MARGIN = 30;",
+    "replace": "const MARGIN = 6;",
+    "note": "поле судоку снова упирается в край панели и читается обрезанным"
+  },
+  {
+    "id": "map-sticker-on-dino",
+    "file": "src/art/layout.ts",
+    "find": "  stickerDx: 110 * 0.34,",
+    "replace": "  stickerDx: -110 * 0.34,",
+    "note": "наклейка решённого узла снова ложится диплодоку на голову"
+  },
+  {
+    "id": "fossil-ribs-inside-disc",
+    "file": "src/art/treasureLayout.ts",
+    "find": "  ribOut: 108,",
+    "replace": "  ribOut: 90,",
+    "note": "рёбрышки аммонита снова прячутся внутри диска — в альбоме окаменелость неотличима от монеты"
+  },
+  {
+    "id": "badge-leaf-on-digit",
+    "file": "src/art/badgeLeaf.ts",
+    "find": "  stemAt: 0.8,",
+    "replace": "  stemAt: 0.3,",
+    "note": "черешок листа полез на цифру текущего леса в меню"
+  }
+]

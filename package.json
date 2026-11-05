@@ -1,0 +1,32 @@
+{
+  "name": "diplodok-kladoiskatel",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "description": "Диплодок Кладоискатель — игра про диплодока, который ищет клады в лесу",
+  "scripts": {
+    "dev": "vite",
+    "shots": "node tools/shots.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "hooks": "node .claude/hooks/cases.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && vite build",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vite": "^8.3.5",
+    "vitest": "^3.2.4"
+  }
+}

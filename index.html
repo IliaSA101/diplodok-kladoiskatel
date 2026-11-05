@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#2e7d4f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- Имя под иконкой на экране «Домой»: без него iPad берёт <title> целиком
+         и обрезает его на половине слова. -->
+    <meta name="apple-mobile-web-app-title" content="Диплодок" />
+    <!-- Пути без ведущей косой: игра живёт не в корне домена, а в подпапке
+         /diplodok-kladoiskatel/, и абсолютный путь увёл бы значок в корень.
+         Сами файлы собирает tools/favicon.py из головы диплодока. -->
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="favicon.png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <title>Диплодок Кладоискатель</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #2e7d4f;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior: none;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+      #game canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
