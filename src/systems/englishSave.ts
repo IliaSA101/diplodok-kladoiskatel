@@ -4,32 +4,23 @@
  * Модуль намеренно без Phaser: только поэтому сохранение проверяется тестом —
  * в node движок не поднять. Хранится одна плоская строка на пару «набор + игра»
  * ('first:anagram'), чтобы добавление нового набора слов ничего не ломало.
- * Любая ошибка хранилища гасится молча: игра должна запускаться всегда.
+ * Чтение и запись — через `saveStore.ts`: битую строку он откладывает в копию,
+ * а любая ошибка хранилища гасится молча — игра должна запускаться всегда.
  */
 import type { EnglishGame } from '../data/english';
-
-const KEY_DONE = 'diplodok-kladoiskatel:v3:english-done';
+import { SPECS } from './saveKeys';
+import { readKey, writeKey } from './saveStore';
 
 function mark(setId: string, game: EnglishGame): string {
   return setId + ':' + game;
 }
 
 function read(): string[] {
-  try {
-    const raw = localStorage.getItem(KEY_DONE);
-    const data: unknown = raw === null ? null : JSON.parse(raw);
-    return Array.isArray(data) ? data.filter((v): v is string => typeof v === 'string') : [];
-  } catch {
-    return [];
-  }
+  return readKey(SPECS.englishDone);
 }
 
 function write(value: readonly string[]): void {
-  try {
-    localStorage.setItem(KEY_DONE, JSON.stringify([...value]));
-  } catch {
-    /* сохранять некуда — не беда */
-  }
+  writeKey(SPECS.englishDone, [...value]);
 }
 
 export const englishSave = {

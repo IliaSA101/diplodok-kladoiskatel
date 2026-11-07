@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
+import { fingerprints } from './tools/shots.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(ROOT, 'art-work/shots');
@@ -41,13 +42,13 @@ function shotsPlugin(): Plugin {
         request.on('data', (chunk: Buffer) => chunks.push(chunk));
         request.on('end', () => {
           mkdirSync(SHOTS, { recursive: true });
-          // Метка времени — по ней хук before-stop понимает, смотрели ли
-          // экраны после последней правки сцены.
+          // Метка времени и отпечатки рисующих файлов — по ним хук before-stop
+          // понимает, смотрели ли экраны после последней правки сцены. Время
+          // без отпечатков врёт: прогон мутантов и откат переписывают файл
+          // тем же текстом, а экран от этого не меняется.
           const body = Buffer.concat(chunks).toString('utf8') || '{}';
-          writeFileSync(
-            resolve(SHOTS, '_stamp.json'),
-            `${JSON.stringify({ at: new Date().toISOString(), ...JSON.parse(body) }, null, 2)}\n`,
-          );
+          const stamp = { at: new Date().toISOString(), ...JSON.parse(body), files: fingerprints(ROOT) };
+          writeFileSync(resolve(SHOTS, '_stamp.json'), `${JSON.stringify(stamp, null, 2)}\n`);
           response.end('ok');
         });
       });

@@ -6,7 +6,7 @@
  * столько наборов, сколько их тут лежит, а игры возьмут слова по порядку.
  *
  * Правила набора, за которые цепляются проверки в tests/english.test.ts:
- * слово только из латинских строчных букв, не длиннее поля поиска (пять),
+ * слово только из латинских строчных букв, не длиннее поля поиска (семь),
  * перевод — одним коротким русским словом, какое ребёнок прочитает сам.
  */
 
@@ -62,8 +62,8 @@ export interface EnglishSet {
   words: readonly EnglishWord[];
 }
 
-/** Длиннее поле поиска не возьмёт: сетка 7×7. */
-export const MAX_WORD_LENGTH = 5;
+/** Длиннее поле поиска не возьмёт: сетка 7×7 (самое длинное слово — brother). */
+export const MAX_WORD_LENGTH = 7;
 
 /** Сколько слов в наборе: столько же точек прогресса в каждой игре. */
 export const WORDS_PER_SET = 5;
@@ -75,7 +75,7 @@ export const ENGLISH_SETS: readonly EnglishSet[] = [
     words: [
       { en: 'love', ru: 'люблю', clue: 'I __ you', icon: TEX.EN_CLUE.love },
       { en: 'her', ru: 'её', clue: 'Anna and __ dog', icon: TEX.EN_CLUE.her },
-      { en: 'are', ru: 'мы есть', clue: 'We __ friends', icon: TEX.EN_CLUE.are },
+      { en: 'are', ru: 'Мы — друзья', clue: 'We __ friends', icon: TEX.EN_CLUE.are },
       { en: 'put', ru: 'положи', clue: '__ it in the box', icon: TEX.EN_CLUE.put },
       { en: 'look', ru: 'смотри', clue: '__ at me', icon: TEX.EN_CLUE.look },
     ],
@@ -102,7 +102,87 @@ export const ENGLISH_SETS: readonly EnglishSet[] = [
       { en: 'white', ru: 'белый', swatch: 0xfff6e8 },
     ],
   },
+  {
+    id: 'football',
+    title: 'Football',
+    words: [
+      { en: 'ball', ru: 'мяч', clue: 'Kick the __!', icon: TEX.FOOT[0] },
+      { en: 'boot', ru: 'бутса', clue: 'Put on a __', icon: TEX.FOOT[1] },
+      { en: 'cup', ru: 'кубок', clue: 'We win the __!', icon: TEX.FOOT[3] },
+      { en: 'flag', ru: 'флаг', clue: 'Wave the __!', icon: TEX.FOOT[5] },
+      // Картинка — ворота с сеткой; в квесте тот же значок подписан СЕТКА, и
+      // фраза говорит, что ждут именно гол.
+      { en: 'goal', ru: 'ворота', clue: 'Score a __!', icon: TEX.FOOT[6] },
+    ],
+  },
+  {
+    id: 'food',
+    title: 'Food',
+    words: [
+      { en: 'apple', ru: 'яблоко', clue: 'A red __', icon: TEX.EN_CLUE.apple },
+      { en: 'milk', ru: 'молоко', clue: 'A glass of __', icon: TEX.EN_CLUE.milk },
+      { en: 'bread', ru: 'хлеб', clue: 'Butter on my __', icon: TEX.EN_CLUE.bread },
+      { en: 'egg', ru: 'яйцо', clue: 'An __ for breakfast', icon: TEX.EN_CLUE.egg },
+      { en: 'cake', ru: 'торт', clue: 'A birthday __', icon: TEX.EN_CLUE.cake },
+    ],
+  },
+  {
+    // Фразы-подсказки различают пол и возраст там, где картинки легко спутать:
+    // мама и сестра, папа и брат. Пары «mum и dad», «brother и sister» — парные
+    // фразы, как в песенке; решает картинка.
+    id: 'family',
+    title: 'Family',
+    words: [
+      { en: 'mum', ru: 'мама', clue: '__ and dad', icon: TEX.EN_CLUE.mum },
+      { en: 'dad', ru: 'папа', clue: 'Mum and __', icon: TEX.EN_CLUE.dad },
+      { en: 'baby', ru: 'малыш', clue: 'Hush, little __!', icon: TEX.EN_CLUE.baby },
+      { en: 'sister', ru: 'сестра', clue: 'Brother and __', icon: TEX.EN_CLUE.sister },
+      { en: 'brother', ru: 'брат', clue: 'Sister and __', icon: TEX.EN_CLUE.brother },
+    ],
+  },
 ];
+
+/**
+ * Номер набора с самым длинным словом (при равенстве — первого).
+ *
+ * Крайний вариант для обхода `?shots`: на нём плитки «Make a word» и клетки
+ * «Catch letters» теснее всего. «Последний набор» годился, пока длиннее всех
+ * случайно стоял последним.
+ */
+export function longestWordSetIndex(): number {
+  let best = 0;
+  let bestLength = -1;
+  ENGLISH_SETS.forEach((set, index) => {
+    const length = Math.max(...set.words.map((word) => word.en.length));
+    if (length > bestLength) {
+      best = index;
+      bestLength = length;
+    }
+  });
+  return best;
+}
+
+/** Чем нарисован кружок набора: картинкой или, если картинки у слов нет, колесом пятен. */
+export type SetBadge =
+  | { kind: 'picture'; key: string }
+  | { kind: 'wheel'; colours: readonly number[] };
+
+/**
+ * Что нарисовать на кружке набора вместо цифры (003-2).
+ *
+ * Одна фигура: ребёнок выбирает набор по картинке и не считает кружки. Football
+ * и Food берут картинку первого слова (мяч, яблоко), Family — общую картинку
+ * семьи, First words и Animals — сердце и кошку. У Colours слова — пятна цвета,
+ * и кружок показывает их же колесом, а не рисунок, которого нет.
+ */
+export function setBadge(set: EnglishSet): SetBadge {
+  if (set.id === 'family') return { kind: 'picture', key: TEX.EN_SET.family };
+  const swatches = set.words.flatMap((word) => (word.swatch === undefined ? [] : [word.swatch]));
+  if (swatches.length === set.words.length) return { kind: 'wheel', colours: swatches };
+  const icon = set.words.find((word) => word.icon !== undefined)?.icon;
+  if (icon === undefined) throw new Error('нет картинки для кружка набора ' + set.id);
+  return { kind: 'picture', key: icon };
+}
 
 /** Три игры ветки. Ключи попадают в сохранение — переименовывать нельзя. */
 export const ENGLISH_GAMES = ['anagram', 'search', 'catch'] as const;

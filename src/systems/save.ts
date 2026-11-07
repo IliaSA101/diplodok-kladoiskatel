@@ -1,89 +1,40 @@
 /**
- * Сохранение в localStorage. Ключи с префиксом игры, чтобы не мешать
- * другим играм на том же github.io.
- * Любая ошибка (приватный режим, переполнение, мусор в данных) гасится молча:
- * игра всегда должна запускаться.
+ * Сохранение: прогресс леса, музей находок и настройки.
+ *
+ * Само хранилище — `saveStore.ts` (чтение с копией битого, запись с повтором на
+ * переполнении), формы значений — `saveKeys.ts`. Здесь только то, что игра
+ * хочет спросить и записать. Любая ошибка хранилища гасится: игра всегда
+ * должна запускаться.
  */
-const PREFIX = 'diplodok-kladoiskatel:';
-const V2 = PREFIX + 'v2:';
+import { SPECS, type Settings } from './saveKeys';
+import { readKey, writeKey } from './saveStore';
 
-const KEY_CURRENT = V2 + 'current';
-const KEY_LEVELS = V2 + 'levels';
-const KEY_DONE = V2 + 'completed';
-const KEY_COLLECTION = V2 + 'collection';
-const KEY_SETTINGS = V2 + 'settings';
-/** Коллекция первой версии игры — переносим её один раз, чтобы музей не обнулился. */
-const KEY_COLLECTION_V1 = PREFIX + 'v1:collection';
-
-export interface Settings {
-  muted: boolean;
-}
-
-function read(key: string): unknown {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw === null ? null : JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* сохранять некуда — не беда */
-  }
-}
-
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
-function asNumberArray(value: unknown): number[] {
-  return Array.isArray(value)
-    ? value.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-    : [];
-}
-
-/** Найденные клады по номерам лесов: { "3": ["t0", "t5"] }. */
-function readLevels(): Record<string, string[]> {
-  const data = read(KEY_LEVELS);
-  if (data === null || typeof data !== 'object' || Array.isArray(data)) return {};
-  const result: Record<string, string[]> = {};
-  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    result[key] = asStringArray(value);
-  }
-  return result;
-}
+export type { Settings };
 
 export const save = {
   /** Лес, который открывается кнопкой «Играть». */
   loadCurrentLevel(): number {
-    const value = read(KEY_CURRENT);
-    return typeof value === 'number' && Number.isFinite(value) && value >= 1
-      ? Math.floor(value)
-      : 1;
+    return readKey(SPECS.current);
   },
 
   saveCurrentLevel(level: number): void {
-    write(KEY_CURRENT, Math.max(1, Math.floor(level)));
+    writeKey(SPECS.current, Math.max(1, Math.floor(level)));
   },
 
   /** id кладов, найденных в этом лесу. */
   loadLevelFound(level: number): string[] {
-    return readLevels()[String(level)] ?? [];
+    return readKey(SPECS.levels)[String(level)] ?? [];
   },
 
   saveLevelFound(level: number, found: readonly string[]): void {
-    const levels = readLevels();
+    const levels = readKey(SPECS.levels);
     levels[String(level)] = [...found];
-    write(KEY_LEVELS, levels);
+    writeKey(SPECS.levels, levels);
   },
 
   /** Леса, пройденные полностью (включая секретный клад). */
   loadCompleted(): number[] {
-    return asNumberArray(read(KEY_DONE));
+    return readKey(SPECS.completed);
   },
 
   isLevelComplete(level: number): boolean {
@@ -93,23 +44,18 @@ export const save = {
   markLevelComplete(level: number): void {
     const done = new Set(save.loadCompleted());
     done.add(level);
-    write(KEY_DONE, [...done].sort((a, b) => a - b));
+    writeKey(SPECS.completed, [...done].sort((a, b) => a - b));
   },
 
-  /** Все предметы, найденные за всё время (музей). */
+  /** Все предметы, найденные за всё время (музей). Музей первой сборки переносит `openStore`. */
   loadCollection(): string[] {
-    const current = asStringArray(read(KEY_COLLECTION));
-    if (current.length > 0) return current;
-    // Первый запуск после обновления игры: забираем музей из старой версии.
-    const old = asStringArray(read(KEY_COLLECTION_V1));
-    if (old.length > 0) write(KEY_COLLECTION, old);
-    return old;
+    return readKey(SPECS.collection);
   },
 
   addToCollection(itemIds: readonly string[]): void {
     const all = new Set(save.loadCollection());
     for (const id of itemIds) all.add(id);
-    write(KEY_COLLECTION, [...all]);
+    writeKey(SPECS.collection, [...all]);
   },
 
   /**
@@ -119,30 +65,28 @@ export const save = {
    * одного леса наказывал бы за всю игру.
    */
   resetLevel(level: number): void {
-    const levels = readLevels();
+    const levels = readKey(SPECS.levels);
     delete levels[String(level)];
-    write(KEY_LEVELS, levels);
-    write(KEY_DONE, save.loadCompleted().filter((n) => n !== level));
+    writeKey(SPECS.levels, levels);
+    writeKey(SPECS.completed, save.loadCompleted().filter((n) => n !== level));
   },
 
-  /** Начать всю игру с чистого листа — вместе с музеем. Для взрослых. */
+  /**
+   * Обнулить прогресс леса, корону, музей и текущий лес — для тестов. «Стереть всё» у
+   * взрослых — `eraseAllProgress()`: оно сперва кладёт резервную копию.
+   */
   resetAll(): void {
-    write(KEY_LEVELS, {});
-    write(KEY_DONE, []);
-    write(KEY_COLLECTION, []);
-    write(KEY_CURRENT, 1);
+    writeKey(SPECS.levels, {});
+    writeKey(SPECS.completed, []);
+    writeKey(SPECS.collection, []);
+    writeKey(SPECS.current, 1);
   },
 
   loadSettings(): Settings {
-    const data = read(KEY_SETTINGS);
-    if (data !== null && typeof data === 'object') {
-      const muted = (data as Record<string, unknown>)['muted'];
-      if (typeof muted === 'boolean') return { muted };
-    }
-    return { muted: false };
+    return readKey(SPECS.settings);
   },
 
   saveSettings(settings: Settings): void {
-    write(KEY_SETTINGS, settings);
+    writeKey(SPECS.settings, settings);
   },
 };

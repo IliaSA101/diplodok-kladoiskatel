@@ -16,12 +16,14 @@
 
 import Phaser from 'phaser';
 import { DINO_GEOM, drawNeck } from '../art/diplodocus';
+import { CHEW, WALK } from '../art/dinoPoses';
 import { applyWarp } from '../art/dinoWarp';
+import { dinoBlinkScaleY, dinoEyeTurn } from '../art/dinoLayout';
 import { PALETTE } from '../art/palette';
-import { buildDinoParts, type DinoParts } from './dinoParts';
+import { buildDinoParts, type DinoParts, type DinoPlane } from './dinoParts';
 
 /** Длительности анимаций, мс. */
-const WALK_STEP_MS = 280;
+const WALK_STEP_MS = WALK.stepMs;
 /** Разворот нужен и действиям: они ждут его, прежде чем тянуть шею. */
 export const TURN_MS = 140;
 const RETURN_MS = 220;
@@ -30,11 +32,11 @@ const CHEW_MS = 1760;
 /** На сколько рисованный диплодок приподнимается на каждом шаге, px рига. */
 const ART_BOB = 6;
 /** На сколько кадров кончик хвоста отстаёт от крупа: столько длится волна. */
-const TAIL_LAG_FRAMES = 9;
+const TAIL_LAG_FRAMES = WALK.tailLagFrames;
 /** Размах шага, градусы: на столько твины крутят лапы от нейтрали. */
-const WALK_SWING = 16;
+const WALK_SWING = WALK.legSwing;
 /** На сколько копыто отрывается от земли на махе, px рисунка. */
-const LEG_LIFT = 8;
+const LEG_LIFT = WALK.legLift;
 
 export interface DiplodocusOptions {
   /** Масштаб персонажа, по умолчанию 1. */
@@ -77,6 +79,7 @@ export class DinoRig {
   protected readonly headTurn: Phaser.GameObjects.Container;
   protected readonly eyeOpen: Phaser.GameObjects.Image;
   protected readonly eyeHappy: Phaser.GameObjects.Image;
+  protected readonly eyeRestScale: number;
   protected readonly leafImg: Phaser.GameObjects.Image;
   protected readonly starWrap: Phaser.GameObjects.Container;
   protected readonly starImg: Phaser.GameObjects.Image;
@@ -101,7 +104,7 @@ export class DinoRig {
   /** Тело, шея и голова — нарисованные картинки, а не фигуры из кода. */
   protected readonly art: boolean;
   /** Сетка с целым диплодоком: у неё гнётся шея. Пусто у диплодока из кода. */
-  protected readonly plane: Phaser.GameObjects.Plane | null;
+  protected readonly plane: DinoPlane | null;
   /** Высота сетки в покое: от неё считается покачивание на ходу. */
   protected readonly planeRestY: number;
   /** Разложение вершин сетки, посчитанное один раз. */
@@ -110,6 +113,8 @@ export class DinoRig {
   protected readonly legAngles: number[] = [0, 0, 0, 0];
   /** Подъём каждой лапы на махе, px рисунка. */
   protected readonly legLifts: number[] = [0, 0, 0, 0];
+  /** Вес поворота основания шеи: 0 на копании (`playDigStroke`), в остальное время 1. */
+  protected neckRootGain = 1;
   /** Углы диагональных пар на прошлом кадре: по ним видно, куда идёт нога. */
   protected readonly prevPairAngle: number[] = [0, 0];
   /** Углы хвоста за последние кадры: по ним кончик отстаёт от крупа. */
@@ -141,6 +146,7 @@ export class DinoRig {
     this.headTurn = parts.headTurn;
     this.eyeOpen = parts.eyeOpen;
     this.eyeHappy = parts.eyeHappy;
+    this.eyeRestScale = parts.eyeRestScale;
     this.leafImg = parts.leafImg;
     this.starWrap = parts.starWrap;
     this.starImg = parts.starImg;
@@ -250,7 +256,7 @@ export class DinoRig {
     this.walkTweens.push(
       tweens.add({
         targets: this.frontLegs,
-        angle: { from: -16, to: 16 },
+        angle: { from: -WALK_SWING, to: WALK_SWING },
         duration: WALK_STEP_MS,
         yoyo: true,
         repeat: -1,
@@ -258,7 +264,7 @@ export class DinoRig {
       }),
       tweens.add({
         targets: this.backLegs,
-        angle: { from: 16, to: -16 },
+        angle: { from: WALK_SWING, to: -WALK_SWING },
         duration: WALK_STEP_MS,
         yoyo: true,
         repeat: -1,
@@ -274,8 +280,8 @@ export class DinoRig {
       }),
       tweens.add({
         targets: this.tailImg,
-        angle: { from: -7, to: 7 },
-        duration: WALK_STEP_MS * 1.5,
+        angle: { from: -WALK.tailSwing, to: WALK.tailSwing },
+        duration: WALK.tailMs,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
@@ -331,8 +337,8 @@ export class DinoRig {
       this.headSway = undefined;
       return;
     }
-    const amplitudeY = this.walking ? 6 : 4;
-    const amplitudeX = this.walking ? 3 : 2;
+    const amplitudeY = this.walking ? WALK.swayY : 4;
+    const amplitudeX = this.walking ? WALK.swayX : 2;
     this.headSway = this.scene.tweens.add({
       targets: this.headWrap,
       x: { from: this.restX, to: this.restX + amplitudeX },
@@ -355,7 +361,7 @@ export class DinoRig {
       if (this.eyeOpen.visible) {
         this.scene.tweens.add({
           targets: this.eyeOpen,
-          scaleY: 0.08,
+          scaleY: dinoBlinkScaleY(this.eyeRestScale),
           duration: BLINK_MS / 2,
           yoyo: true,
           ease: 'Sine.easeInOut',
@@ -379,7 +385,14 @@ export class DinoRig {
     this.timers.push(timer);
   }
 
-  /** Листик появляется у рта, голова жуёт, листик исчезает. */
+  /**
+   * Листик появляется у рта, голова жуёт, листик исчезает.
+   *
+   * Жуёт только диплодок из кода: у него голова лежит в headWrap и кивает
+   * вместе с ним. У рисованного голова — вершины сетки, а твин крутит один
+   * headWrap, и глаз с листиком доворачиваются обратно (`dinoEyeTurn`): голова
+   * не двигается, листик лишь появляется, растёт и исчезает у рта.
+   */
   protected playChew(): void {
     const tweens = this.scene.tweens;
     this.leafImg.setVisible(true).setScale(0.1).setAlpha(1).setAngle(-20);
@@ -392,7 +405,7 @@ export class DinoRig {
     });
     tweens.add({
       targets: this.headWrap,
-      angle: 7,
+      angle: CHEW.headAngle,
       duration: 150,
       delay: 240,
       yoyo: true,
@@ -498,6 +511,9 @@ export class DinoRig {
       this.legAngles[i] = pair[which] ?? 0;
       this.legLifts[i] = lift[which] ?? 0;
     }
+    // Ближняя передняя лапа (2) копает сама по себе: на шаге её угол тот же,
+    // что у пары, а при взмахе копания твинится только она одна.
+    this.legAngles[2] = this.frontLegs[1]?.angle ?? 0;
     // Сетка на шаге приподнимается, а голова держится ровно: глаз и листик
     // нарисованы отдельно от сетки и уехали бы с неё на высоту шага.
     // Поэтому цель шеи опускаем на тот же подъём — в своих координатах сетки.
@@ -514,12 +530,17 @@ export class DinoRig {
       // Кончику достаётся угол постарше — так хвост идёт волной.
       this.tailImg.angle,
       this.rememberTail(this.tailImg.angle),
+      this.neckRootGain,
     );
-    // Глаз и листик нарисованы отдельно: доворачиваем их вместе с головой.
-    this.headTurn.setRotation(turn);
-    return;
-
+    // Вершины сетки в экранные Phaser переводит раньше, чем мы их согнули:
+    // пересчитываем сразу, иначе сетка отстаёт от глаза на шаг.
+    plane.refresh();
+    // Глаз и листик нарисованы отдельно: доворачиваем их вместе с головой, но
+    // не повторно за твины headWrap (радость, копание, жевание): сетка с ними
+    // не поворачивается.
+    this.headTurn.setRotation(dinoEyeTurn(turn, this.headWrap.rotation));
   }
+
   destroy(): void {
     if (this.dead) {
       return;

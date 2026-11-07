@@ -96,6 +96,72 @@ export const DINO_WATCH_SPOT: DinoSpot = {
   tail: true,
 };
 
+/**
+ * Диплодок целиком на экранах без задачки: выбор леса, «Мои сокровища», альбом.
+ *
+ * Панели, из-за которой можно выглянуть, там нет или она вся занята (сетка
+ * предметов, кнопки), поэтому он стоит целиком — как на хабе английского —
+ * в единственной свободной полосе. Координаты — экранные; полосу и то, что
+ * рядом с ней, считают `levelSelectLayout`, `treasureLayout` и
+ * `stickerAlbumLayout`, а тест `tests/dinoSpots.test.ts` держит его в стороне
+ * от всего нарисованного.
+ *
+ * Хвост-завиток здесь не нужен (`tail: false`): он на самом рисунке.
+ */
+/**
+ * Выбор леса: на траве под вторым рядом кружков, левее кнопки «Ещё лес!».
+ * Макушка в прыжке (`dinoCheerReach`) остаётся ниже точек пятого леса.
+ */
+export const DINO_LEVELS_SPOT: DinoSpot = { centerX: 190, bottom: 716, height: 110, tail: false };
+
+/**
+ * «Мои сокровища»: справа внизу панели, правее кнопки «назад».
+ * Экранные координаты; панель стоит по центру экрана.
+ */
+export const DINO_COLLECTION_SPOT: DinoSpot = { centerX: 1152, bottom: 680, height: 130, tail: false };
+
+/**
+ * Альбом наклеек: на верхнем ряду ячеек, между заголовком и счётчиком.
+ * Макушка в прыжке не доходит до рамки листа (рамка в 14 px от края экрана).
+ */
+export const DINO_ALBUM_SPOT: DinoSpot = { centerX: 745, bottom: 160, height: 104, tail: false };
+
+/**
+ * Прыжок радости (`DinoWatcher.cheer`): подъём вверх и качание тела.
+ *
+ * Числа живут тут, а не в сущности, потому что от них зависит, где можно
+ * поставить диплодока: тест сверяет его место с прыжком, а не с покоем.
+ * Тело качается вокруг ног, поэтому верхний угол рисунка уходит вверх ещё
+ * на пару пикселей — `dinoCheerReach` их считает.
+ */
+export const DINO_CHEER = { jump: 26, swayDeg: 6 } as const;
+
+/** На сколько выше макушки в покое окажется верх рисунка в самом высоком месте прыжка, px. */
+export function dinoCheerReach(spot: DinoSpot): number {
+  const half = (spot.height * DINO_WATCH.aspect) / 2;
+  const sway = (DINO_CHEER.swayDeg * Math.PI) / 180;
+  // Верхний угол рамки, повёрнутой вокруг середины низа: поднимается на
+  // half·sin и опускается на height·(1−cos). Это запас сверху, а не оценка головы.
+  const rise = half * Math.sin(sway) - spot.height * (1 - Math.cos(sway));
+  return DINO_CHEER.jump + Math.max(0, rise);
+}
+
+/** Тот же диплодок в координатах контейнера, чей центр стоит в (originX, originY). */
+export function dinoSpotIn(spot: DinoSpot, originX: number, originY: number): DinoSpot {
+  return { ...spot, centerX: spot.centerX - originX, bottom: spot.bottom - originY };
+}
+
+/** Весь рисунок диплодока на его месте: рост на ширину по пропорции рисунка. */
+export function dinoSpotBox(spot: DinoSpot): Box {
+  const half = (spot.height * DINO_WATCH.aspect) / 2;
+  return {
+    left: spot.centerX - half,
+    right: spot.centerX + half,
+    top: spot.bottom - spot.height,
+    bottom: spot.bottom,
+  };
+}
+
 export interface Box {
   left: number;
   right: number;
@@ -140,4 +206,37 @@ export function dinoTailTip(): { x: number; y: number } {
     x: DINO_TAIL.centerX - reach * Math.cos(radians),
     y: DINO_TAIL.centerY - reach * Math.sin(radians),
   };
+}
+
+/**
+ * Масштаб глаза в покое: у рисованного диплодока глаз вырезан с рисунка в его
+ * разрешении и ужат до пикселей рига, у диплодока из кода он и так в них.
+ * Возвращать глаз в «единицу» нельзя — на экране победы он вырастал втрое.
+ */
+export function dinoEyeScale(art: boolean, meshScale: number): number {
+  return art ? meshScale : 1;
+}
+
+/** Во сколько раз моргание сплющивает глаз от его покойного масштаба. */
+export const EYE_BLINK = 0.08;
+
+/**
+ * Масштаб по высоте на пике моргания. Считается от покоя: у рисованного глаза
+ * покой — 0.327, и абсолютные 0.08 не прищуривали, а растягивали бы его в линию
+ * другой толщины, чем у глаза из кода.
+ */
+export function dinoBlinkScaleY(restScale: number): number {
+  return restScale * EYE_BLINK;
+}
+
+/**
+ * Поворот контейнера `headTurn` с глазом и листиком, рад.
+ *
+ * `turn` — на сколько сетка повернула голову. Но глаз лежит ещё и в `headWrap`,
+ * а его твины (радость −12°, копание 34°, жевание 7°) крутят глаз, не трогая
+ * сетку: глаз съезжал с головы на полтора своих размера. Вычитаем то, что
+ * `headWrap` уже повернул, и глаз встаёт по сетке; голова на сетке не кивает.
+ */
+export function dinoEyeTurn(turn: number, headWrapRotation: number): number {
+  return turn - headWrapRotation;
 }

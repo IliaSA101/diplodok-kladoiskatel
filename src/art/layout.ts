@@ -219,36 +219,6 @@ export const PUZZLE_PANEL = {
   bottom: PANEL_CENTER_Y + 580 / 2,
 } as const;
 
-/**
- * Список слов в «Find a word»: сами слова, кнопки «?» и кнопка «озвучить».
- *
- * Кнопка звука лежала на кнопке «?» первого слова — десять пикселей сверху, —
- * и это пробовали лечить уменьшенной зоной нажатия у подсказки. Лечили
- * симптом: на экране по-прежнему один круг лежал на другом. Теперь верх
- * списка **выводится** из кнопки звука и просвета, а не стоит числом.
- */
-const ENGLISH_SPEAK_Y = 162;
-const ENGLISH_SPEAK_RADIUS = 54;
-const ENGLISH_HINT_RADIUS = 24;
-const ENGLISH_GAP = 12;
-
-export const ENGLISH_LIST = {
-  /** Середина колонки слов. */
-  x: 920,
-  /** Шаг строк. */
-  step: 72,
-  /** Сдвиг кнопки «?» от середины слова. */
-  hintDx: 190,
-  hintRadius: ENGLISH_HINT_RADIUS,
-  /** Кнопка «озвучить»: сдвиг от середины слова и своя высота. */
-  speakDx: 180,
-  speakY: ENGLISH_SPEAK_Y,
-  speakRadius: ENGLISH_SPEAK_RADIUS,
-  /** Первая строка — ниже кнопки звука на её радиус, просвет и радиус «?». */
-  top: ENGLISH_SPEAK_Y + ENGLISH_SPEAK_RADIUS + ENGLISH_GAP + ENGLISH_HINT_RADIUS,
-  gap: ENGLISH_GAP,
-} as const;
-
 export const MAP_NODE = {
   diameter: 110,
   /** Картинка внутри кружка. */

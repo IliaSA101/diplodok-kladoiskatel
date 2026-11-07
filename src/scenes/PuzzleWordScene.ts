@@ -13,8 +13,8 @@ import { createText } from '../art/ui';
 import { rowFit } from '../art/layout';
 import { audio } from '../audio/AudioEngine';
 import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { wordSet } from '../data/quest';
-import type { WordPuzzle } from '../data/quest';
+import { wordSet } from '../data/questWords';
+import type { WordPuzzle } from '../data/questWords';
 import { addBackToMap, addPuzzleBackdrop, finishPuzzle, notePuzzleMistake } from '../systems/quest';
 import type { PuzzleSceneData } from '../systems/quest';
 import { addLetterInput, pickByKey } from '../systems/letterInput';
@@ -37,10 +37,14 @@ const SLOTS_LEFT = 140;
 const SLOTS_RIGHT = GAME_WIDTH - 140;
 const SLOT_MAX_STEP = 124;
 const SLOT_GAP = 14;
-/** Ряд букв внизу: левее x=170 кнопка «назад», правее 1180 — край панели. */
+/**
+ * Ряд букв внизу: симметрично от центра экрана, с отступом от краёв панели. Был
+ * 170..1180 (кнопку «назад» когда-то ставили вниз) — на девяти буквах ТРИБУНЫ
+ * ряд уезжал вправо на 35 px.
+ */
 const POOL_Y = GAME_HEIGHT - 108;
-const POOL_LEFT = 170;
-const POOL_RIGHT = GAME_WIDTH - 100;
+const POOL_LEFT = 130;
+const POOL_RIGHT = GAME_WIDTH - 130;
 const POOL_MAX_STEP = 130;
 /** Просвет между соседними плитками: по нему же ужимается плитка. */
 const TILE_GAP = 8;

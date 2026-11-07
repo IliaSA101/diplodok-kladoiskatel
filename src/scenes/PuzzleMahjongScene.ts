@@ -19,7 +19,7 @@ import { MAHJONG_TABLE, PUZZLE_DOTS, puzzleDotsPerRow, stackLayout } from '../ar
 import { createProgressDots, type ProgressDots } from '../art/progressDots';
 import { audio } from '../audio/AudioEngine';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { mahjongDeal, mahjongPairs } from '../data/quest';
+import { mahjongDeal, mahjongPairs } from '../data/questDeals';
 import {
   hasMove,
   isFree,

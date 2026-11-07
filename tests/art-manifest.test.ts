@@ -62,4 +62,18 @@ describe('манифест арта', () => {
     const files = Object.values(images);
     expect(new Set(files).size).toBe(files.length);
   });
+
+  it('каждая картинка английских слов, кружков и слов квеста есть в манифесте (И12)', () => {
+    // Манифест — строки: забытый ключ тихо оставляет картинку процедурной, а у
+    // этих слов процедурной нет, и ребёнок увидит пустое место.
+    const wanted = [
+      ...Object.values(TEX.EN_CLUE),
+      ...Object.values(TEX.EN_SET),
+      ...Object.values(TEX.WORD_PIC),
+    ];
+    expect(wanted).toHaveLength(10 + 10 + 1 + 3);
+    for (const key of wanted) {
+      expect(images[key], `нет ${key} в манифесте`).toBeDefined();
+    }
+  });
 });

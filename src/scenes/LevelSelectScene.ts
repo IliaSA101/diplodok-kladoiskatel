@@ -9,33 +9,30 @@ import { PALETTE } from '../art/palette';
 import { TEX } from '../art/keys';
 import { createBackButton, createRoundButton, createText } from '../art/ui';
 import { createLevelBadge } from '../art/levelBadge';
-import { dotRows, dotsPerRowLimit } from '../art/layout';
+import { dotRows } from '../art/layout';
+import {
+  LEVEL_DOTS,
+  LEVEL_DOTS_ONE_ROW_MAX,
+  LEVEL_GRID,
+  LEVEL_HORIZON_Y,
+  levelBadgeCentre,
+} from '../art/levelSelectLayout';
 import type { BadgeTone } from '../art/levelBadge';
 import { audio } from '../audio/AudioEngine';
+import { DINO_LEVELS_SPOT } from '../art/dinoLayout';
+import { DinoWatcher } from '../entities/DinoWatcher';
 import { LEVEL_COUNT, getLevel, totalTreasures } from '../data/levels';
 import { askConfirm } from '../systems/confirm';
 import { save } from '../systems/save';
 import { SCENE } from '../types';
 
-/** Линия горизонта: выше — небо, ниже — трава (как в меню). */
-const HORIZON_Y = Math.round(GAME_HEIGHT * 0.72);
-
-const COLUMNS = 4;
-/** Радиус кружка: диаметр 150px, с запасом под палец. */
-const BADGE_RADIUS = 75;
-const STEP_X = 230;
-const ROW_STEP_Y = 235;
-const FIRST_ROW_Y = 205;
-
-/** Точки кладов под кружком. */
-const DOT_RADIUS = 8;
-const DOT_STEP = 24;
-const DOT_ROW_STEP = 22;
-const DOT_GAP_BELOW_BADGE = 26;
-/** Просвет между рядами точек соседних лесов. */
-const DOT_ROW_GAP = 22;
-/** Если кладов больше этого числа — точки идут в два ряда. */
-const DOTS_ONE_ROW_MAX = dotsPerRowLimit(STEP_X, DOT_ROW_GAP, DOT_RADIUS, DOT_STEP);
+const BADGE_RADIUS = LEVEL_GRID.badgeRadius;
+const HORIZON_Y = LEVEL_HORIZON_Y;
+const DOT_RADIUS = LEVEL_DOTS.radius;
+const DOT_STEP = LEVEL_DOTS.step;
+const DOT_ROW_STEP = LEVEL_DOTS.rowStep;
+const DOT_GAP_BELOW_BADGE = LEVEL_DOTS.gapBelowBadge;
+const DOTS_ONE_ROW_MAX = LEVEL_DOTS_ONE_ROW_MAX;
 
 const PULSE_SCALE = 1.07;
 
@@ -73,7 +70,12 @@ export class LevelSelectScene extends Phaser.Scene {
     }
 
     this.createBackButton();
-    if (save.loadCompleted().length >= LEVEL_COUNT) this.createEndlessButton();
+    const allDone = save.loadCompleted().length >= LEVEL_COUNT;
+    if (allDone) this.createEndlessButton();
+
+    // Диплодок на траве под кружками: все леса пройдены — он радуется.
+    const dino = DinoWatcher.create(this, 1, DINO_LEVELS_SPOT);
+    if (allDone) this.time.delayedCall(450, () => dino?.cheer());
 
     this.setupKeyboard();
 
@@ -88,10 +90,7 @@ export class LevelSelectScene extends Phaser.Scene {
 
   /** Кружок леса n с цифрой, короной (если пройден) и точками кладов. */
   private createLevelCell(n: number): void {
-    const col = (n - 1) % COLUMNS;
-    const row = Math.floor((n - 1) / COLUMNS);
-    const x = GAME_WIDTH / 2 + (col - (COLUMNS - 1) / 2) * STEP_X;
-    const y = FIRST_ROW_Y + row * ROW_STEP_Y;
+    const { x, y } = levelBadgeCentre(n);
 
     const done = save.isLevelComplete(n);
     const current = n === this.currentLevel;

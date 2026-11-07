@@ -1,0 +1,118 @@
+{
+  "game": "pre-1.0",
+  "ref": "03b2164+8077300",
+  "about": "ребёнок до выхода 1.0: квест 03b2164 решён целиком, затем три круга 8077300; в наклейках sticker-ball-boot",
+  "storage": {
+    "diplodok-kladoiskatel:v2:collection": "[\"crystal\",\"coin\",\"egg\",\"ring\",\"starstone\",\"key\",\"crown\",\"amber\",\"fossil\",\"pearl\",\"goldcrown\"]",
+    "diplodok-kladoiskatel:v2:completed": "[1,2,3]",
+    "diplodok-kladoiskatel:v2:current": "4",
+    "diplodok-kladoiskatel:v2:levels": "{\"1\":[\"t0\",\"t1\",\"t2\",\"secret\"],\"2\":[\"t0\",\"t1\",\"t2\",\"secret\"],\"3\":[\"t0\",\"t1\",\"t2\",\"t3\",\"t4\",\"t5\",\"t6\",\"t7\",\"t8\",\"secret\"],\"4\":[\"t0\",\"t1\"]}",
+    "diplodok-kladoiskatel:v2:settings": "{\"muted\":false}",
+    "diplodok-kladoiskatel:v3:quest-solved": "[\"q1\",\"q2\",\"q3\",\"q4\",\"q5\",\"q6\",\"q7\",\"q8\",\"q9\",\"q10\",\"q11\",\"q12\",\"q13\",\"q14\",\"q15\",\"q16\",\"q17\",\"q18\",\"q19\",\"q20\",\"q21\",\"q22\",\"q23\",\"q24\"]",
+    "diplodok-kladoiskatel:v3:quest-stickers": "[\"sticker-ball\",\"sticker-boot\",\"sticker-header\",\"sticker-whistle\",\"sticker-keeper\",\"sticker-flag\",\"sticker-medal\",\"sticker-trophy\",\"sticker-cone\",\"sticker-footprint\",\"sticker-goal\",\"sticker-glove\",\"sticker-stopwatch\",\"sticker-scarf\",\"sticker-bottle\",\"sticker-runner\",\"sticker-cup\",\"sticker-star\",\"sticker-captain\",\"sticker-lap\",\"sticker-ball-boot\",\"sticker-trophy-medal\",\"sticker-whistle-cone\",\"sticker-three-stars\"]"
+  },
+  "seen": {
+    "current": 4,
+    "levels": {
+      "1": [
+        "t0",
+        "t1",
+        "t2",
+        "secret"
+      ],
+      "2": [
+        "t0",
+        "t1",
+        "t2",
+        "secret"
+      ],
+      "3": [
+        "t0",
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+        "t6",
+        "t7",
+        "t8",
+        "secret"
+      ],
+      "4": [
+        "t0",
+        "t1"
+      ]
+    },
+    "completed": [
+      1,
+      2,
+      3
+    ],
+    "muted": false,
+    "museum": [
+      "crystal",
+      "coin",
+      "egg",
+      "ring",
+      "starstone",
+      "key",
+      "crown",
+      "amber",
+      "fossil",
+      "pearl",
+      "goldcrown"
+    ],
+    "solved": [
+      "q1",
+      "q2",
+      "q3",
+      "q4",
+      "q5",
+      "q6",
+      "q7",
+      "q8",
+      "q9",
+      "q10",
+      "q11",
+      "q12",
+      "q13",
+      "q14",
+      "q15",
+      "q16",
+      "q17",
+      "q18",
+      "q19",
+      "q20",
+      "q21",
+      "q22",
+      "q23",
+      "q24"
+    ],
+    "stickers": [
+      "sticker-ball",
+      "sticker-boot",
+      "sticker-header",
+      "sticker-whistle",
+      "sticker-keeper",
+      "sticker-flag",
+      "sticker-medal",
+      "sticker-trophy",
+      "sticker-cone",
+      "sticker-footprint",
+      "sticker-goal",
+      "sticker-glove",
+      "sticker-stopwatch",
+      "sticker-scarf",
+      "sticker-bottle",
+      "sticker-runner",
+      "sticker-cup",
+      "sticker-star",
+      "sticker-captain",
+      "sticker-lap",
+      "sticker-ball-boot",
+      "sticker-trophy-medal",
+      "sticker-whistle-cone",
+      "sticker-three-stars"
+    ]
+  }
+}

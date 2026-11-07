@@ -14,7 +14,7 @@ import { SUDOKU_BOARD, sudokuLayout, sudokuToolSpot } from '../art/sudokuLayout'
 import type { SudokuLayout } from '../art/sudokuLayout';
 import { PALETTE } from '../art/palette';
 import { audio } from '../audio/AudioEngine';
-import { sudokuLevel, sudokuSeed } from '../data/quest';
+import { sudokuLevel, sudokuSeed } from '../data/questDeals';
 import { addBackToMap, addPuzzleBackdrop, finishPuzzle, notePuzzleMistake } from '../systems/quest';
 import type { PuzzleSceneData } from '../systems/quest';
 import { SUDOKU_EMPTY, buildSudoku, hasConflict } from '../systems/sudokuBoard';

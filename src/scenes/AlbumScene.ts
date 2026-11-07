@@ -9,19 +9,19 @@ import Phaser from 'phaser';
 import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { PALETTE } from '../art/palette';
 import { TEX } from '../art/keys';
+import { STICKER_ALBUM, stickerCellCentre } from '../art/stickerAlbumLayout';
 import { createBackButton, createPanel, createText } from '../art/ui';
+import { DINO_ALBUM_SPOT, dinoSpotIn } from '../art/dinoLayout';
+import { DinoWatcher } from '../entities/DinoWatcher';
 import { audio } from '../audio/AudioEngine';
 import { onEscape } from '../systems/quest';
 import { questSave } from '../systems/questSave';
 import { SCENE } from '../types';
 
-const COLUMNS = 8;
-const ROWS = 3;
-const CELL_STEP_X = 150;
-const CELL_STEP_Y = 170;
-const FIRST_ROW_Y = 230;
+const COLUMNS = STICKER_ALBUM.columns;
+const ROWS = STICKER_ALBUM.rows;
 /** Ячейка-подложка и наклейка в ней, длинная сторона в px. */
-const SLOT_SIZE = 126;
+const SLOT_SIZE = STICKER_ALBUM.slot;
 const STICKER_SIZE = 100;
 /** Прозрачность силуэта ещё не полученной наклейки. */
 const MISSING_ALPHA = 0.18;
@@ -101,9 +101,15 @@ export class AlbumScene extends Phaser.Scene {
     const sheet = this.add.container(cx, cy);
 
     const panel = createPanel(this, 0, 0, GAME_WIDTH - pad, GAME_HEIGHT - pad);
-    const title = createText(this, 380 - cx, 66 - cy, 'Мои наклейки', CONFIG.ui.fontSizeBig, PALETTE.uiText);
-    const counter = createText(this, 1010 - cx, 66 - cy, `${count} из ${total}`, CONFIG.ui.fontSizeBig, PALETTE.uiText);
+    const { headY, titleX, counterX } = STICKER_ALBUM;
+    const title = createText(this, titleX - cx, headY - cy, 'Мои наклейки', CONFIG.ui.fontSizeBig, PALETTE.uiText);
+    const counter = createText(this, counterX - cx, headY - cy, `${count} из ${total}`, CONFIG.ui.fontSizeBig, PALETTE.uiText);
     sheet.add([panel, title, counter]);
+
+    // Диплодок стоит на верхнем ряду ячеек и выпрыгивает вместе с листом.
+    // Все двадцать четыре наклейки на месте — он радуется.
+    const dino = DinoWatcher.create(this, 0, dinoSpotIn(DINO_ALBUM_SPOT, cx, cy), sheet);
+    if (count >= total) this.time.delayedCall(700, () => dino?.cheer());
 
     // Ряда точек здесь нет: двадцать четыре в строку не влезают, а сама
     // сетка показывает ровно то же — что собрано, а что ещё силуэт.
@@ -115,10 +121,7 @@ export class AlbumScene extends Phaser.Scene {
   /** Сетка 8×3, ряд на круг: ячейки появляются по очереди. */
   private createCells(owned: ReadonlySet<string>, golden: ReadonlySet<string>): void {
     TEX.STICKER.slice(0, COLUMNS * ROWS).forEach((key, i) => {
-      const col = i % COLUMNS;
-      const row = Math.floor(i / COLUMNS);
-      const x = GAME_WIDTH / 2 + (col - (COLUMNS - 1) / 2) * CELL_STEP_X;
-      const y = FIRST_ROW_Y + row * CELL_STEP_Y;
+      const { x, y } = stickerCellCentre(i);
       const got = owned.has(key);
 
       const cell = this.add.container(x, y);

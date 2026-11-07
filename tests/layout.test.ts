@@ -18,8 +18,6 @@ import {
   COUNT_BOARD,
   COUNT_KEYS,
   MAHJONG_TABLE,
-  ENGLISH_LIST,
-  PUZZLE_PANEL,
   PUZZLE_DOTS,
   countBoardWidth,
   countKeySpot,
@@ -32,12 +30,8 @@ import {
   stackLayout,
 } from '../src/art/layout';
 import { GAME_HEIGHT, GAME_WIDTH } from '../src/config';
-import {
-  MAHJONG_PAIRS,
-  MAHJONG_STACKED_FROM,
-  MEMORY_LEVELS,
-  WORD_TIERS,
-} from '../src/data/quest';
+import { WORD_TIERS } from '../src/data/questWords';
+import { MAHJONG_PAIRS, MAHJONG_STACKED_FROM, MEMORY_LEVELS } from '../src/data/questDeals';
 import { COUNT_MAX_ANSWER, countTasks } from '../src/systems/countTask';
 import { buildMahjongBoard } from '../src/systems/mahjongBoard';
 
@@ -235,21 +229,6 @@ describe('счётчик пар в задачке', () => {
       expect(perRow * rows, `${total} пар`).toBeGreaterThanOrEqual(total);
       expect(rows, `${total} пар`).toBeLessThanOrEqual(2);
     }
-  });
-});
-
-describe('список слов в «Find a word»', () => {
-  it('кнопка звука не лежит на кнопке «?» первого слова', () => {
-    // Лежала — на десять пикселей, — и лечили это уменьшенной зоной нажатия
-    // у подсказки: на экране один круг по-прежнему был поверх другого.
-    const speakBottom = ENGLISH_LIST.speakY + ENGLISH_LIST.speakRadius;
-    const firstHintTop = ENGLISH_LIST.top - ENGLISH_LIST.hintRadius;
-    expect(firstHintTop - speakBottom).toBeGreaterThanOrEqual(ENGLISH_LIST.gap);
-  });
-
-  it('пять строк списка умещаются в панель', () => {
-    const last = ENGLISH_LIST.top + 4 * ENGLISH_LIST.step + ENGLISH_LIST.hintRadius;
-    expect(last).toBeLessThanOrEqual(PUZZLE_PANEL.bottom);
   });
 });
 

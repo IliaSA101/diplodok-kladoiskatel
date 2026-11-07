@@ -18,9 +18,11 @@
  * Модуль без Phaser — правило роста проверяется тестом, а не на ребёнке.
  */
 import type { PuzzleKind } from '../data/quest';
+import { SKILL_STEP_MAX, SPECS } from './saveKeys';
+import { readKey, writeKey } from './saveStore';
 
 /** Выше этого ступень не поднимается: дальше у задачек кончается запас. */
-export const MAX_SKILL = 4;
+export const MAX_SKILL = SKILL_STEP_MAX;
 
 /**
  * За сколько уверенный семилетка решает задачку этого вида, мс.
@@ -72,29 +74,12 @@ function clamp(skill: number): number {
   return Math.min(MAX_SKILL, Math.max(0, Math.round(skill)));
 }
 
-const KEY = 'diplodok-kladoiskatel:v3:quest-skill';
-
 function read(): Record<string, number> {
-  try {
-    const raw = localStorage.getItem(KEY);
-    const data: unknown = raw === null ? null : JSON.parse(raw);
-    if (data === null || typeof data !== 'object' || Array.isArray(data)) return {};
-    const out: Record<string, number> = {};
-    for (const [kind, value] of Object.entries(data as Record<string, unknown>)) {
-      if (typeof value === 'number') out[kind] = clamp(value);
-    }
-    return out;
-  } catch {
-    return {};
-  }
+  return readKey(SPECS.skill);
 }
 
 function write(all: Record<string, number>): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(all));
-  } catch {
-    /* сохранять некуда — не беда, ступень просто начнётся заново */
-  }
+  writeKey(SPECS.skill, all);
 }
 
 export const skillSave = {

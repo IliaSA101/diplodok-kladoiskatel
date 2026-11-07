@@ -36,6 +36,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from dino_owners import croup_top, face_owners, owners_meta  # noqa: E402
 from dino_parts import eye_box, eye_centre, patch_eye  # noqa: E402
 
 # Плечо диплодока в системе рига — из DINO_GEOM (src/art/diplodocus.ts).
@@ -374,6 +375,10 @@ def main() -> None:
 
     head_rest = to_rig(axis['topX'], axis['topY'])
     parts = body_parts(whole)
+    # Хозяева граней сетки ниже живота и верх спины над выходом хвоста
+    # (tools/dino_owners.py): по ним dinoWarp гнёт лапы и хвост гранями.
+    owners_row, owners_rows, owners_shifts = face_owners(whole, parts['bellyY'], parts['legs'])
+    croup_y = croup_top(whole, parts['tailBaseX'])
     # Окно под размер глаза, а не под размер картинки: иначе в рамку попадает
     # контур всей головы и заплатка ложится на морду.
     eye_box_whole = tight_box(whole, (parts['eyeX'], parts['eyeY']), EYE_WINDOW)
@@ -504,7 +509,9 @@ export const DINO_MESH = {{
   tailFloorY: {parts['tailFloorY']:.1f},
   /** Самая дальняя точка хвоста от основания, px картинки. */
   tailReach: {parts['tailReach']:.1f},
-}} as const;
+  /** Верх спины над выходом хвоста: хвост качается вокруг отрезка от неё до tailBaseY. */
+  croupTopY: {croup_y:.1f},
+{owners_meta(owners_row, owners_rows, owners_shifts)}}} as const;
 '''
     args.meta.write_text(meta, encoding='utf-8')
 

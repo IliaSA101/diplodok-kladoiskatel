@@ -12,26 +12,27 @@
 
 import Phaser from 'phaser';
 import { DINO_GEOM } from '../art/diplodocus';
+import { DIG, DIP, JOY, PUSH, REACH } from '../art/dinoPoses';
 import { DinoRig, TURN_MS } from './dinoRig';
 
 export type { DiplodocusOptions } from './dinoRig';
 
 /** Длительности анимаций, мс. */
-const JOY_MS = 900;
-const DIG_MS = 420;
-const REACH_UP_MS = 700;
-const REACH_HOLD_MS = 400;
-const REACH_BACK_MS = 600;
+const JOY_MS = JOY.ms;
+const DIG_MS = DIG.ms;
+const REACH_UP_MS = REACH.upMs;
+const REACH_HOLD_MS = REACH.holdMs;
+const REACH_BACK_MS = REACH.backMs;
 /** Толчок камня: опускание головы, упор, рывок, возврат (итого 800 мс). */
-const PUSH_DOWN_MS = 280;
-const PUSH_BRACE_MS = 100;
-const PUSH_LUNGE_MS = 100;
-const PUSH_BACK_MS = 320;
+const PUSH_DOWN_MS = PUSH.downMs;
+const PUSH_BRACE_MS = PUSH.braceMs;
+const PUSH_LUNGE_MS = PUSH.lungeMs;
+const PUSH_BACK_MS = PUSH.backMs;
 /** Достать клад из ручья: нырок, 3 покачивания, подъём (итого 1200 мс). */
-const DIP_DOWN_MS = 400;
-const DIP_BOB_MS = 70;
-const DIP_BOB_CYCLES = 3;
-const DIP_UP_MS = 380;
+const DIP_DOWN_MS = DIP.downMs;
+const DIP_BOB_MS = DIP.bobMs;
+const DIP_BOB_CYCLES = DIP.bobCycles;
+const DIP_UP_MS = DIP.upMs;
 
 /** Как далеко от плеча голова может уехать при вытягивании шеи. */
 const MAX_NECK_REACH = 250;
@@ -51,6 +52,7 @@ export class Diplodocus extends DinoRig {
     this.hideLeaf();
     this.scene.tweens.killTweensOf(this.headWrap);
     this.headWrap.setAngle(0);
+    this.neckRootGain = 1;
   }
 
   /** Завершить занимающую анимацию через ms и вернуть позу к норме. */
@@ -63,6 +65,7 @@ export class Diplodocus extends DinoRig {
       }
       if (!this.busy) {
         this.rig.setPosition(0, 0);
+        this.neckRootGain = 1;
         this.bodyWrap.setScale(1);
         this.headWrap.setAngle(0);
         if (!this.walking) {
@@ -76,7 +79,7 @@ export class Diplodocus extends DinoRig {
 
   private showHappyEyes(happy: boolean): void {
     this.scene.tweens.killTweensOf(this.eyeOpen);
-    this.eyeOpen.setScale(1).setVisible(!happy);
+    this.eyeOpen.setScale(this.eyeRestScale).setVisible(!happy);
     this.eyeHappy.setVisible(happy);
   }
 
@@ -90,7 +93,7 @@ export class Diplodocus extends DinoRig {
     const tweens = this.scene.tweens;
     tweens.add({
       targets: this.rig,
-      y: -36,
+      y: JOY.jump,
       duration: 280,
       hold: 70,
       yoyo: true,
@@ -98,36 +101,36 @@ export class Diplodocus extends DinoRig {
     });
     tweens.add({
       targets: this.frontLegs,
-      angle: -28,
-      duration: 240,
-      hold: 110,
+      angle: JOY.front,
+      duration: JOY.legsMs,
+      hold: JOY.legsHold,
       yoyo: true,
       ease: 'Sine.easeOut',
     });
     tweens.add({
       targets: this.backLegs,
-      angle: 28,
-      duration: 240,
-      hold: 110,
+      angle: JOY.back,
+      duration: JOY.legsMs,
+      hold: JOY.legsHold,
       yoyo: true,
       ease: 'Sine.easeOut',
     });
     tweens.add({
       targets: this.headWrap,
-      x: this.restX - 8,
-      y: this.restY - 30,
-      angle: -12,
-      duration: 300,
-      hold: 120,
+      x: this.restX + JOY.headDx,
+      y: this.restY + JOY.headDy,
+      angle: JOY.headAngle,
+      duration: JOY.headMs,
+      hold: JOY.headHold,
       yoyo: true,
       ease: 'Sine.easeOut',
     });
     tweens.add({
       targets: this.tailImg,
-      angle: { from: -16, to: 16 },
-      duration: 110,
+      angle: { from: -JOY.tailSwing, to: JOY.tailSwing },
+      duration: JOY.tailMs,
       yoyo: true,
-      repeat: 3,
+      repeat: JOY.tailRepeat,
       ease: 'Sine.easeInOut',
     });
     // пружинка при посадке
@@ -153,27 +156,48 @@ export class Diplodocus extends DinoRig {
       return;
     }
     this.beginAction();
+    // Голова идёт в 18 px от плеча: основание шеи там не поворачивается (И13-3).
+    // В начале и в конце взмаха она в покое, угол нулевой, и переключение бесшовно.
+    this.neckRootGain = 0;
     const tweens = this.scene.tweens;
+    // Туда и обратно двумя твинами: возврат «зеркалом» привёл бы голову в точку,
+    // где застало нажатие, и при быстрых нажатиях она не доходила бы до покоя.
     tweens.add({
       targets: this.headWrap,
-      x: this.restX + 16,
-      y: -40,
-      angle: 34,
-      duration: 190,
-      hold: 30,
-      yoyo: true,
+      x: this.restX + DIG.headDx,
+      y: DIG.headY,
+      angle: DIG.headAngle,
+      duration: DIG.headMs,
       ease: 'Sine.easeIn',
+      onComplete: () => {
+        if (this.dead) {
+          return;
+        }
+        tweens.add({
+          targets: this.headWrap,
+          x: this.restX,
+          y: this.restY,
+          angle: 0,
+          duration: DIG.headMs,
+          delay: DIG.headHold,
+          ease: 'Sine.easeOut',
+        });
+      },
     });
-    // передняя ближняя лапа «гребёт»
-    tweens.add({
-      targets: this.legs[3],
-      angle: -34,
-      duration: 130,
-      delay: 110,
-      hold: 40,
-      yoyo: true,
-      ease: 'Sine.easeOut',
-    });
+    // Передняя ближняя лапа «гребёт». На ходу она уже идёт шагом (твин
+    // frontLegs), второй твин на ту же лапу даёт щелчок до 32° за кадр:
+    // на ходу копает одна голова.
+    if (!this.walking) {
+      tweens.add({
+        targets: this.legs[3],
+        angle: DIG.paw,
+        duration: DIG.pawMs,
+        delay: DIG.pawDelayMs,
+        hold: DIG.pawHold,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+      });
+    }
     tweens.add({
       targets: this.bodyWrap,
       y: 4,
@@ -230,8 +254,8 @@ export class Diplodocus extends DinoRig {
             // короткая пауза у кроны с лёгким покачиванием
             tweens.add({
               targets: this.headWrap,
-              x: target.x - 5,
-              angle: target.angle - 7,
+              x: target.x + REACH.bobDx,
+              angle: target.angle + REACH.bobAngle,
               duration: REACH_HOLD_MS / 2,
               yoyo: true,
               ease: 'Sine.easeInOut',
@@ -338,14 +362,14 @@ export class Diplodocus extends DinoRig {
     return this.runAimedAction(worldX, total, () => {
       const tweens = this.scene.tweens;
       // Поза «упёрся»: голова на уровне груди, шея выгнута горбом (рисует drawNeck).
-      const lowX = DINO_GEOM.shoulderX + 54;
-      const lowY = -78;
-      const lowAngle = 26;
+      const lowX = DINO_GEOM.shoulderX + PUSH.lowDx;
+      const lowY = PUSH.lowY;
+      const lowAngle = PUSH.lowAngle;
 
       // Опускание: голова вперёд-вниз, передние лапы выставлены вперёд и упираются.
       tweens.add({
         targets: this.frontLegs,
-        angle: -12,
+        angle: PUSH.front,
         duration: PUSH_DOWN_MS,
         ease: 'Sine.easeOut',
       });
@@ -363,14 +387,14 @@ export class Diplodocus extends DinoRig {
           // Упор: чуть присели и набрали силу, задние лапы готовятся толкать.
           tweens.add({
             targets: this.backLegs,
-            angle: 10,
+            angle: PUSH.back,
             duration: PUSH_BRACE_MS,
             ease: 'Sine.easeOut',
           });
           tweens.add({
             targets: this.headWrap,
-            x: lowX - 4,
-            angle: lowAngle + 4,
+            x: lowX + PUSH.braceDx,
+            angle: lowAngle + PUSH.braceAngle,
             duration: PUSH_BRACE_MS,
             ease: 'Sine.easeInOut',
             onComplete: () => {
@@ -394,9 +418,9 @@ export class Diplodocus extends DinoRig {
               });
               tweens.add({
                 targets: this.headWrap,
-                x: lowX + 18,
-                y: lowY + 4,
-                angle: lowAngle + 8,
+                x: lowX + PUSH.lungeDx,
+                y: lowY + PUSH.lungeDy,
+                angle: lowAngle + PUSH.lungeAngle,
                 duration: PUSH_LUNGE_MS,
                 ease: 'Quad.easeOut',
                 onComplete: () => {
@@ -453,7 +477,7 @@ export class Diplodocus extends DinoRig {
       });
       tweens.add({
         targets: this.frontLegs,
-        angle: -9,
+        angle: DIP.front,
         duration: DIP_DOWN_MS,
         ease: 'Sine.easeOut',
       });
@@ -482,9 +506,9 @@ export class Diplodocus extends DinoRig {
           // Шарит на дне: короткие покачивания вниз-вперёд и обратно.
           tweens.add({
             targets: this.headWrap,
-            x: target.x + 5,
-            y: target.y + 7,
-            angle: target.angle + 9,
+            x: target.x + DIP.bobDx,
+            y: target.y + DIP.bobDy,
+            angle: target.angle + DIP.bobAngle,
             duration: DIP_BOB_MS,
             yoyo: true,
             repeat: DIP_BOB_CYCLES - 1,
@@ -536,7 +560,7 @@ export class Diplodocus extends DinoRig {
     worldY: number,
     dir: 1 | -1,
   ): { x: number; y: number; angle: number } {
-    const angle = 52;
+    const angle: number = DIP.angle;
     const rad = Phaser.Math.DegToRad(angle);
     const mouthX = DINO_GEOM.mouthX * Math.cos(rad) - DINO_GEOM.mouthY * Math.sin(rad);
     const mouthY = DINO_GEOM.mouthX * Math.sin(rad) + DINO_GEOM.mouthY * Math.cos(rad);

@@ -11,6 +11,7 @@ import { TEX } from '../art/keys';
 import { PALETTE } from '../art/palette';
 import { createProgressDots, type ProgressDots } from '../art/progressDots';
 import { createText } from '../art/ui';
+import { CATCH_COLUMN, CATCH_ROW } from '../art/englishLayout';
 import { rowFit } from '../art/layout';
 import { audio } from '../audio/AudioEngine';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
@@ -24,18 +25,14 @@ import {
   createSpeakButton,
   createWordPrompt,
   finishEnglishGame,
+  markEnglishDone,
   type Hint,
 } from './englishUi';
 
 const CX = GAME_WIDTH / 2;
-const DOTS_Y = 126;
-const HINT_Y = 210;
-const SLOTS_Y = 318;
-const TILE = 92;
-const TILE_GAP = 12;
-const ROW_LEFT = 260;
-const ROW_RIGHT = GAME_WIDTH - 260;
-const MAX_STEP = 116;
+const DOTS_Y = CATCH_COLUMN.dotsY;
+const HINT_Y = CATCH_COLUMN.promptY;
+const SLOTS_Y = CATCH_COLUMN.slotsY;
 
 /** Шарики живут ниже клеток слова и выше нижнего края. */
 const BALLOON_RADIUS = 46;
@@ -155,12 +152,13 @@ export class EnglishCatchScene extends Phaser.Scene {
     this.caught = 0;
     this.wordDone = false;
 
-    this.hint = createWordPrompt(this, CX, HINT_Y, word);
+    this.hint = createWordPrompt(this, CX, HINT_Y, word, { size: CATCH_COLUMN.promptSize });
     this.time.delayedCall(260, () => {
       if (!this.finished) speech.say(word.en);
     });
 
-    const row = rowFit(word.en.length, ROW_LEFT, ROW_RIGHT, MAX_STEP, TILE, TILE_GAP);
+    const { left, right, maxStep, tile: maxTile, gap } = CATCH_ROW;
+    const row = rowFit(word.en.length, left, right, maxStep, maxTile, gap);
     row.spots.forEach((x) => {
       const tile = this.add
         .image(x, SLOTS_Y, TEX.LETTER_TILE)
@@ -302,6 +300,8 @@ export class EnglishCatchScene extends Phaser.Scene {
   private onWordSolved(): void {
     this.wordDone = true;
     this.dots?.fill(this.wordIndex);
+    // Последнее слово — набор засчитан сразу: Esc в паузе до звезды его не отнимет.
+    if (this.wordIndex + 1 >= this.words.length) markEnglishDone(this.setIndex, 'catch');
     audio.play('found');
     speech.say(this.word);
 

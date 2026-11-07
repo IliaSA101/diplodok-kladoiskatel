@@ -13,8 +13,8 @@ import { PUZZLE_DOTS, centredGrid, puzzleDotsPerRow } from '../art/layout';
 import { createProgressDots, type ProgressDots } from '../art/progressDots';
 import { audio } from '../audio/AudioEngine';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { memoryDeal, memoryLevel } from '../data/quest';
-import type { MemoryLevel } from '../data/quest';
+import { memoryDeal, memoryLevel } from '../data/questDeals';
+import type { MemoryLevel } from '../data/questDeals';
 import {
   addBackToMap,
   addPuzzleBackdrop,

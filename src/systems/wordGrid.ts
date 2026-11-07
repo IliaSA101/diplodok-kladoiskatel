@@ -9,8 +9,12 @@
  * только если она сошлась, иначе есть запасная — каждое слово в своей строке
  * от левого края. Она не может не сойтись, пока слов не больше, чем строк,
  * и слово не длиннее строки, а это проверяется на входе.
+ *
+ * Досыпку случайных букв (и её правила) держит `wordFill.ts`, выбор слова
+ * кликами — `wordPick.ts`.
  */
 import { makeRng, type Rng } from './rng';
+import { fillRest, layoutFalseStart } from './wordFill';
 
 export interface Placement {
   word: string;
@@ -29,9 +33,12 @@ export interface WordGrid {
   placements: readonly Placement[];
 }
 
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
-/** Сколько раз пробуем случайную раскладку, прежде чем взять запасную. */
-const TRIES = 12;
+/**
+ * Сколько раз пробуем случайную раскладку, прежде чем взять запасную.
+ * Лишнее попытки дешёвы, а чистая раскладка (без ложного начала из букв двух
+ * разных слов) нужна: досыпка её уже не исправит.
+ */
+const TRIES = 60;
 
 function emptyLetters(size: number): string[][] {
   return Array.from({ length: size }, () => Array.from({ length: size }, () => ''));
@@ -99,74 +106,10 @@ function rowLayout(words: readonly string[]): Placement[] {
   return words.map((word, index) => ({ word, row: index, col: 0, horizontal: true }));
 }
 
-/** Слово, которое читается в поле не там, где его положили. */
-function strayWord(
-  letters: readonly string[][],
-  words: readonly string[],
-  placements: readonly Placement[],
-): boolean {
-  const size = letters.length;
-  const known = new Set(placements.map((p) => `${p.word}:${p.row}:${p.col}:${String(p.horizontal)}`));
-  for (const word of words) {
-    for (let row = 0; row < size; row += 1) {
-      for (let col = 0; col < size; col += 1) {
-        for (const horizontal of [true, false]) {
-          const place: Placement = { word, row, col, horizontal };
-          if (!reads(letters, place)) continue;
-          if (!known.has(`${word}:${row}:${col}:${String(horizontal)}`)) return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-/** Читается ли в этой точке именно это слово. */
-function reads(letters: readonly string[][], place: Placement): boolean {
-  const size = letters.length;
-  const length = place.word.length;
-  if (place.horizontal ? place.col + length > size : place.row + length > size) return false;
-  for (let i = 0; i < length; i += 1) {
-    const row = place.row + (place.horizontal ? 0 : i);
-    const col = place.col + (place.horizontal ? i : 0);
-    if (letters[row]?.[col] !== place.word.charAt(i)) return false;
-  }
-  return true;
-}
-
 /**
- * Досыпать случайные буквы в пустые клетки.
- *
- * Буква выбирается так, чтобы не дописать слово в чужом месте: иначе ребёнок
- * нашёл бы «cat» там, где игра его не ждёт, и получил бы отказ вместо награды.
- */
-function fillRest(
-  letters: string[][],
-  words: readonly string[],
-  placements: readonly Placement[],
-  rng: Rng,
-): void {
-  const size = letters.length;
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (letters[row]?.[col] !== '') continue;
-      for (const letter of rng.shuffle(ALPHABET.split(''))) {
-        const line = letters[row];
-        if (line === undefined) break;
-        line[col] = letter;
-        if (!strayWord(letters, words, placements)) break;
-        line[col] = '';
-      }
-      // Ни одна буква не подошла (так не бывает при 26 буквах) — ставим любую.
-      const line = letters[row];
-      if (line !== undefined && line[col] === '') line[col] = rng.pick(ALPHABET.split(''));
-    }
-  }
-}
-
-/**
- * Поле со спрятанными словами. Один и тот же seed даёт одно и то же поле:
- * ребёнок, вернувшийся в игру, видит знакомые буквы на знакомых местах.
+ * Поле со спрятанными словами. Один и тот же seed даёт одно и то же поле —
+ * на этом держатся тесты, `?shots` и e2e; игра при каждом входе берёт новый
+ * seed (`randomSeed`), чтобы поле не повторялось.
  */
 export function buildWordGrid(words: readonly string[], size: number, seed: number): WordGrid {
   if (words.length > size) throw new Error('слов больше, чем строк в поле');
@@ -175,9 +118,19 @@ export function buildWordGrid(words: readonly string[], size: number, seed: numb
     if (word.length === 0) throw new Error('пустое слово');
   }
 
+  // Первая сошедшаяся раскладка — запасная; чистая (без ложного начала на стыке
+  // двух слов) берётся, как только попалась.
   let placements: Placement[] | null = null;
-  for (let attempt = 0; attempt < TRIES && placements === null; attempt += 1) {
-    placements = tryLayout(words, size, makeRng(seed + attempt * 7919));
+  for (let attempt = 0; attempt < TRIES; attempt += 1) {
+    const layout = tryLayout(words, size, makeRng(seed + attempt * 7919));
+    if (layout === null) continue;
+    placements ??= layout;
+    const letters = emptyLetters(size);
+    for (const place of layout) put(letters, place);
+    if (!layoutFalseStart(letters, layout)) {
+      placements = layout;
+      break;
+    }
   }
   const final = placements ?? rowLayout(words);
 
@@ -189,8 +142,10 @@ export function buildWordGrid(words: readonly string[], size: number, seed: numb
 }
 
 /**
- * Какое слово выделил ребёнок, ткнув в первую и последнюю букву.
- * Возвращает слово из списка или null: по диагонали и задом наперёд не считаем.
+ * Какое слово лежит между первой и последней буквой.
+ *
+ * Игра так слово больше не выбирает (два тапа «не логично» — выбор пути в
+ * `wordPick.ts`); функция оставлена как проверка границ слова и держится тестом.
  */
 export function wordAt(
   grid: WordGrid,

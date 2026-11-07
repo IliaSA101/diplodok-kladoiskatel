@@ -10,12 +10,14 @@ import { TEX } from '../art/keys';
 import { PALETTE } from '../art/palette';
 import { createProgressDots, type ProgressDots } from '../art/progressDots';
 import { createText } from '../art/ui';
+import { ANAGRAM_ROW } from '../art/englishLayout';
 import { rowFit } from '../art/layout';
 import { audio } from '../audio/AudioEngine';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { englishSet, type EnglishWord } from '../data/english';
 import { addLetterInput, pickByKey } from '../systems/letterInput';
-import { makeRng } from '../systems/rng';
+import { anagramLetters } from '../systems/anagramDeal';
+import { randomSeed } from '../systems/rng';
 import { speech } from '../systems/speech';
 import { SCENE, type EnglishGameData } from '../types';
 import {
@@ -24,6 +26,7 @@ import {
   createSpeakButton,
   createWordPrompt,
   finishEnglishGame,
+  markEnglishDone,
 } from './englishUi';
 
 const CX = GAME_WIDTH / 2;
@@ -32,15 +35,7 @@ const WORD_Y = 232;
 const SLOTS_Y = 410;
 const POOL_Y = GAME_HEIGHT - 120;
 
-const TILE = 104;
-const TILE_GAP = 10;
-const ROW_LEFT = 200;
-const ROW_RIGHT = GAME_WIDTH - 200;
-const MAX_STEP = 124;
 
-/** Одна лишняя буква: выбор есть, но перебирать нечего. */
-const EXTRA_LETTERS = 1;
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 const SOLVED_PAUSE_MS = 1500;
 
 interface LetterTile {
@@ -56,6 +51,7 @@ interface LetterTile {
 
 export class EnglishAnagramScene extends Phaser.Scene {
   private setIndex = 0;
+  private seed = 0;
   private words: readonly EnglishWord[] = [];
   private wordIndex = 0;
   private word = '';
@@ -74,6 +70,7 @@ export class EnglishAnagramScene extends Phaser.Scene {
 
   init(data: EnglishGameData): void {
     this.setIndex = data.setIndex;
+    this.seed = data.seed ?? randomSeed();
     this.words = englishSet(data.setIndex).words;
     this.wordIndex = 0;
     this.word = '';
@@ -130,14 +127,13 @@ export class EnglishAnagramScene extends Phaser.Scene {
       if (!this.finished) speech.say(puzzle.en);
     });
 
-    // Буквы слова и одна лишняя, перемешанные одинаково при каждом запуске.
-    const rng = makeRng(7100 + this.setIndex * 31 + index * 7);
-    const inWord = new Set(puzzle.en.split(''));
-    const spare = rng.shuffle(ALPHABET.split('').filter((ch) => !inWord.has(ch)));
-    const chars = rng.shuffle([...puzzle.en.split(''), ...spare.slice(0, EXTRA_LETTERS)]);
+    // Буквы слова и одна лишняя. Расклад новый при каждом заходе (seed случайный,
+    // если его не передали): одни и те же плитки читались как «то же самое».
+    const chars = anagramLetters(puzzle.en, this.seed + index * 7);
 
-    const pool = rowFit(chars.length, ROW_LEFT, ROW_RIGHT, MAX_STEP, TILE, TILE_GAP);
-    const cells = rowFit(puzzle.en.length, ROW_LEFT, ROW_RIGHT, MAX_STEP, pool.size, TILE_GAP + 4);
+    const { left, right, maxStep, tile: maxTile, gap, cellGap } = ANAGRAM_ROW;
+    const pool = rowFit(chars.length, left, right, maxStep, maxTile, gap);
+    const cells = rowFit(puzzle.en.length, left, right, maxStep, pool.size, gap + cellGap);
 
     cells.spots.forEach((x) => {
       const cell = this.add
@@ -282,6 +278,8 @@ export class EnglishAnagramScene extends Phaser.Scene {
   private onWordSolved(): void {
     this.wordDone = true;
     this.dots?.fill(this.wordIndex);
+    // Последнее слово — набор засчитан сразу: Esc в паузе до звезды его не отнимет.
+    if (this.wordIndex + 1 >= this.words.length) markEnglishDone(this.setIndex, 'anagram');
     audio.play('found');
     // Собранное слово тут же звучит целиком: буквы сложились в то, что слышно.
     speech.say(this.word);

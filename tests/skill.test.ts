@@ -9,47 +9,21 @@
  * ребёнок попадает на задачку не по силам и выйти из неё не может.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  MAHJONG_PAIRS,
-  MEMORY_LEVELS,
-  QUEST_NODES,
-  QUIZ_LEVELS,
-  QUIZ_TIERS,
-  WORD_TIERS,
-  wordSet,
-  mahjongPairs,
-  mahjongStacked,
-  memoryLevel,
-  quizTask,
-  quizTierIndex,
-  tier,
-} from '../src/data/quest';
+import { QUEST_NODES, tier } from '../src/data/quest';
+import { WORD_TIERS, wordSet } from '../src/data/questWords';
+import { QUIZ_LEVELS, QUIZ_TIERS, quizTask, quizTierIndex } from '../src/data/questQuiz';
+import { MAHJONG_PAIRS, MEMORY_LEVELS, mahjongPairs, mahjongStacked, memoryLevel } from '../src/data/questDeals';
 import type { PuzzleKind } from '../src/data/quest';
 import { COUNT_MAX_ANSWER, COUNT_TASKS, countTasks } from '../src/systems/countTask';
 import { MAX_SKILL, PACE_MS, nextSkill, skillSave } from '../src/systems/skill';
-
-/** Память вместо браузерного хранилища. */
-class MemoryStorage {
-  private items = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.items.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.items.set(key, value);
-  }
-
-  removeItem(key: string): void {
-    this.items.delete(key);
-  }
-}
+import { MemoryStorage, installMemoryStorage } from './memoryStorage';
+import { clearHeldBack } from '../src/systems/saveStore';
 
 let storage: MemoryStorage;
 
 beforeEach(() => {
-  storage = new MemoryStorage();
-  (globalThis as { localStorage?: unknown }).localStorage = storage;
+  storage = installMemoryStorage();
+  clearHeldBack();
 });
 
 const FAST = 10_000;
@@ -130,6 +104,17 @@ describe('ступень между заходами', () => {
       expect(skill, junk).toBeGreaterThanOrEqual(0);
       expect(skill, junk).toBeLessThanOrEqual(MAX_SKILL);
     }
+  });
+
+  it('ступень, записанная строкой, не пропадает бесследно: исходник откладывается', () => {
+    // Понятое — ступень mahjong; "2" строкой игра не берёт, но выбросить её молча нельзя.
+    const raw = '{"sudoku":"2","mahjong":3}';
+    storage.setItem('diplodok-kladoiskatel:v3:quest-skill', raw);
+    expect(skillSave.of('mahjong')).toBe(3);
+    expect(skillSave.of('sudoku')).toBe(0);
+    skillSave.note('word', FAST, 0);
+    expect(storage.getItem('diplodok-kladoiskatel:broken:v3:quest-skill')).toBe(raw);
+    expect(skillSave.of('mahjong')).toBe(3);
   });
 
   it('сброс обнуляет все виды', () => {

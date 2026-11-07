@@ -40,7 +40,8 @@ export interface ProgressDotsOptions {
 }
 
 const STEP = 60;
-const RADIUS = 16;
+/** Радиус точки в ряду из одной строки. */
+export const DOT_RADIUS = 16;
 const DEPTH = 2;
 const STROKE = 4;
 
@@ -57,7 +58,7 @@ export function createProgressDots(
   const step = options.step ?? STEP;
   const { perRow, rows } = dotRows(options.count, options.maxPerRow ?? options.count);
   // Два ряда занимают вдвое больше места по высоте, поэтому точки мельче.
-  const radius = (options.radius ?? RADIUS) * (rows > 1 ? 0.8 : 1);
+  const radius = (options.radius ?? DOT_RADIUS) * (rows > 1 ? 0.8 : 1);
   const rowStep = options.rowStep ?? step;
   const firstY = options.y - ((rows - 1) * rowStep) / 2;
   const centerX = options.centerX ?? GAME_WIDTH / 2;

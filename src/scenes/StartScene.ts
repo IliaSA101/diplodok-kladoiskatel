@@ -22,11 +22,8 @@ import {
 import { createPanel, createRoundButton, createText } from '../art/ui';
 import { audio } from '../audio/AudioEngine';
 import { Diplodocus } from '../entities/Diplodocus';
-import { askConfirm } from '../systems/confirm';
-import { englishSave } from '../systems/englishSave';
-import { questSave } from '../systems/questSave';
-import { save } from '../systems/save';
 import { SCENE } from '../types';
+import { openParentsMenu } from './parentsMenu';
 
 /** Линия горизонта: выше — небо, ниже — трава. Поднята ради диплодока. */
 const HORIZON_Y = Math.round(GAME_HEIGHT * 0.58);
@@ -61,6 +58,8 @@ function fitImage(image: Phaser.GameObjects.Image, size: number): void {
 export class StartScene extends Phaser.Scene {
   private dino: Diplodocus | null = null;
   private leaving = false;
+  /** Меню взрослых открыто: клавиши молчат. */
+  private parentsOpen = false;
   private keyHandler: ((event: KeyboardEvent) => void) | null = null;
   private keyUnlock: (() => void) | null = null;
   private pickForest: () => void = () => undefined;
@@ -73,6 +72,7 @@ export class StartScene extends Phaser.Scene {
 
   init(): void {
     this.leaving = false;
+    this.parentsOpen = false;
     this.dino = null;
     this.keyHandler = null;
     this.keyUnlock = null;
@@ -249,6 +249,7 @@ export class StartScene extends Phaser.Scene {
     keyboard.once('keydown', this.keyUnlock);
 
     this.keyHandler = (event: KeyboardEvent) => {
+      if (this.parentsOpen) return;
       if (event.key === '1' || event.key === 'ArrowLeft') this.pickForest();
       else if (event.key === '2') this.pickFootball();
       else if (event.key === '3' || event.key === 'ArrowRight') this.pickEnglish();
@@ -260,11 +261,11 @@ export class StartScene extends Phaser.Scene {
    * Спрятанная кнопка для взрослых: держать нижний левый угол две секунды.
    *
    * Угол нарочно меньше карточки и левее её края: иначе одно и то же
-   * нажатие спорило бы — уйти в лес или открыть окно взрослых.
+   * нажатие спорило бы — уйти в лес или открыть меню взрослых.
    *
-   * Стирать всю игру целиком ребёнку незачем — для него есть «заново» у
-   * каждого леса и у каждого круга квеста. А взрослому иногда нужно начать
-   * с чистого листа, и эта кнопка не должна попадаться под палец случайно.
+   * Меню (`parentsMenu.ts`): файл прогресса, возврат из файла, резервная копия, отчёт
+   * о сбое и «Стереть всё». Стирать всю игру целиком ребёнку незачем — для него есть
+   * «заново» у каждого леса и круга квеста, — и эта кнопка не должна попадаться под палец.
    */
   private createParentsCorner(): void {
     const zone = this.add
@@ -281,16 +282,10 @@ export class StartScene extends Phaser.Scene {
       stop();
       timer = this.time.delayedCall(CORNER_HOLD_MS, () => {
         timer = null;
-        askConfirm(this, {
-          question: 'Стереть весь прогресс?',
-          icon: TEX.ICON_AGAIN,
-          onYes: () => {
-            save.resetAll();
-            questSave.reset();
-            englishSave.reset();
-            this.scene.restart();
-          },
-        });
+        if (this.parentsOpen) return;
+        // Пока меню открыто, «1/2/3» и стрелки не уводят со сцены.
+        this.parentsOpen = true;
+        openParentsMenu(this, { onClose: () => (this.parentsOpen = false) });
       });
     });
     zone.on(Phaser.Input.Events.POINTER_UP, stop);

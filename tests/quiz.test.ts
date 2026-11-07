@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { TEX } from '../src/art/keys';
-import { QUIZ_LEVELS, QUIZ_TIERS, quizTask } from '../src/data/quest';
+import { QUIZ_LEVELS, QUIZ_TIERS, quizTask } from '../src/data/questQuiz';
 
 /** Картинки, которыми вообще можно отвечать: и поле, и инвентарь. */
 const ICONS = new Set<string>([...TEX.FOOT, ...TEX.GEAR]);

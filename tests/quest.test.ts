@@ -8,25 +8,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { TEX } from '../src/art/keys';
-import {
-  MAHJONG_PAIRS,
-  MAHJONG_STACKED_FROM,
-  MEMORY_LEVELS,
-  NODES_PER_ROUND,
-  PLAIN_ROUNDS,
-  QUEST_NODES,
-  ROUND_COUNT,
-  SUDOKU_SEEDS,
-  WORD_TIERS,
-  WORDS_PER_PUZZLE,
-  isGoldenRound,
-  mahjongPairs,
-  quizTask,
-  memoryLevel,
-  roundNodes,
-  sudokuSeed,
-  wordSet,
-} from '../src/data/quest';
+import { NODES_PER_ROUND, PLAIN_ROUNDS, QUEST_NODES, ROUND_COUNT, isGoldenRound, roundNodes } from '../src/data/quest';
+import { WORD_TIERS, WORDS_PER_PUZZLE, wordSet } from '../src/data/questWords';
+import { quizTask } from '../src/data/questQuiz';
+import { MAHJONG_PAIRS, MAHJONG_STACKED_FROM, MEMORY_LEVELS, SUDOKU_SEEDS, mahjongPairs, memoryLevel, sudokuSeed } from '../src/data/questDeals';
 import type { PuzzleKind } from '../src/data/quest';
 import { COUNT_TASKS, countTasks } from '../src/systems/countTask';
 import { MAX_SKILL } from '../src/systems/skill';
@@ -46,7 +31,8 @@ import { makeRng } from '../src/systems/rng';
 
 const STICKERS = new Set<string>(TEX.STICKER);
 // Подсказка к слову и ответ викторины берутся из обоих листов готового арта.
-const ICONS = new Set<string>([...TEX.FOOT, ...TEX.GEAR]);
+// Значки и три картинки к словам ПОЛЕ, ДУШ, ТРИБУНА (004-6): у них своя полка TEX.WORD_PIC.
+const ICONS = new Set<string>([...TEX.FOOT, ...TEX.GEAR, ...Object.values(TEX.WORD_PIC)]);
 
 describe('узлы квеста', () => {
   it('у каждого свой id', () => {
@@ -155,6 +141,24 @@ describe('собери слово', () => {
         expect(ICONS.has(puzzle.icon), `${puzzle.word}: ${puzzle.icon}`).toBe(true);
       }
     }
+  });
+});
+
+describe('три слова под новые картинки (004-6)', () => {
+  const place = (word: string): { row: number; icon: string | undefined } => {
+    const row = WORD_TIERS.findIndex((set) => set.some((one) => one.word === word));
+    return { row, icon: WORD_TIERS[row]?.find((one) => one.word === word)?.icon };
+  };
+
+  it('ПОЛЕ и ДУШ — в ряду коротких слов, ТРИБУНА — в ряду длинных, у каждого своя картинка', () => {
+    expect(place('ПОЛЕ')).toEqual({ row: 0, icon: TEX.WORD_PIC.pitch });
+    expect(place('ДУШ')).toEqual({ row: 0, icon: TEX.WORD_PIC.shower });
+    expect(place('ТРИБУНА')).toEqual({ row: 2, icon: TEX.WORD_PIC.stands });
+  });
+
+  it('картинки слов не повторяют друг друга: одно слово — одна картинка', () => {
+    const icons = WORD_TIERS.flat().map((one) => one.icon);
+    expect(new Set(icons).size).toBe(icons.length);
   });
 });
 

@@ -7,7 +7,8 @@
  * помогло: хвост диплодока ушёл в игру обрубком три раза подряд, потому что
  * напоминание можно отложить, а блокировку нельзя.
  */
-import { readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -50,9 +51,49 @@ export function lastLook(root = ROOT) {
   }
 }
 
-/** Файлы, которые правили после последнего взгляда, путями от корня проекта. */
+/**
+ * Отпечатки рисующих файлов: путь от корня → sha1 содержимого.
+ *
+ * Их кладёт в `_stamp.json` middleware из vite.config.ts в конце обхода.
+ * Одного времени правки мало: прогон мутантов подменяет строку и возвращает
+ * её, откат недоделанного переписывает файл тем же текстом — время новое,
+ * а экран тот же, и хук требовал обход зря (06–07.11 — раз десять подряд).
+ */
+export function fingerprints(root = ROOT) {
+  const out = {};
+  for (const watched of WATCHED) {
+    for (const path of filesUnder(join(root, watched))) {
+      const key = path.slice(root.length + 1).replace(/\\/g, '/');
+      out[key] = createHash('sha1').update(readFileSync(path)).digest('hex');
+    }
+  }
+  return out;
+}
+
+/** Отпечатки, снятые в конце последнего обхода; пусто — обход их не писал. */
+function lookedFingerprints(root) {
+  try {
+    const stamp = JSON.parse(readFileSync(join(root, 'art-work', 'shots', '_stamp.json'), 'utf8'));
+    return stamp !== null && typeof stamp.files === 'object' && stamp.files !== null ? stamp.files : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Файлы, которые правили после последнего взгляда, путями от корня проекта.
+ *
+ * Правкой считается новое время *и* новое содержимое: файл, который после
+ * обхода переписали тем же текстом, экран не меняет. Если обход отпечатков
+ * не оставил (старая метка), судим по одному времени, как раньше.
+ */
 export function staleScreens(root = ROOT) {
-  return watchedSince(root, lastLook(root));
+  const looked = lookedFingerprints(root);
+  const candidates = watchedSince(root, lastLook(root));
+  if (candidates.length === 0) return candidates;
+  const now = fingerprints(root);
+  // Чего обход не видел, у того отпечатка нет: undefined ≠ хэш — правка.
+  return candidates.filter((path) => looked[path] !== now[path]);
 }
 
 /** Что из рисующего правили после момента `since`. */

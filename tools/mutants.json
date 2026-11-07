@@ -78,16 +78,16 @@
   },
   {
     "id": "save-level-zero",
-    "file": "src/systems/save.ts",
-    "find": "return typeof value === 'number' && Number.isFinite(value) && value >= 1",
-    "replace": "return typeof value === 'number' && Number.isFinite(value)",
+    "file": "src/systems/saveKeys.ts",
+    "find": "typeof data === 'number' && Number.isFinite(data) && data >= 1",
+    "replace": "typeof data === 'number' && Number.isFinite(data)",
     "note": "кнопка «Играть» ведёт в лес с номером 0"
   },
   {
     "id": "save-wrong-level-progress",
     "file": "src/systems/save.ts",
-    "find": "return readLevels()[String(level)] ?? [];",
-    "replace": "return readLevels()[String(level + 1)] ?? [];",
+    "find": "return readKey(SPECS.levels)[String(level)] ?? [];",
+    "replace": "return readKey(SPECS.levels)[String(level + 1)] ?? [];",
     "note": "найденные клады берутся от соседнего леса"
   },
   {
@@ -99,9 +99,9 @@
   },
   {
     "id": "save-mute-ignored",
-    "file": "src/systems/save.ts",
-    "find": "      if (typeof muted === 'boolean') return { muted };",
-    "replace": "      if (typeof muted === 'boolean') return { muted: false };",
+    "file": "src/systems/saveKeys.ts",
+    "find": "? { value: { muted: data['muted'] }, lossless: true }",
+    "replace": "? { value: { muted: false }, lossless: true }",
     "note": "выключённый звук включается обратно после перезагрузки"
   },
   {
@@ -142,8 +142,8 @@
   {
     "id": "quest-reset-drops-shared-sticker",
     "file": "src/systems/questSave.ts",
-    "find": "    write(KEY_STICKERS, read(KEY_STICKERS).filter((key) => kept.has(key)));",
-    "replace": "    const gone = new Set(nodes.map((item) => item.sticker));\n    write(KEY_STICKERS, read(KEY_STICKERS).filter((key) => !gone.has(key)));",
+    "find": "    writeKey(KEY_STICKERS, readKey(KEY_STICKERS).filter((key) => kept.has(key)));",
+    "replace": "    const gone = new Set(nodes.map((item) => item.sticker));\n    writeKey(KEY_STICKERS, readKey(KEY_STICKERS).filter((key) => !gone.has(key)));",
     "note": "откат круга 4 выносит из альбома наклейку круга 1"
   },
   {
@@ -182,36 +182,15 @@
     "note": "наблюдатель вырос и его голова легла на панель задачки"
   },
   {
-    "id": "memory-icons-from-start",
-    "file": "src/data/quest.ts",
-    "find": "  const icons = rng.shuffle(CARD_ICONS.map((_, index) => index)).slice(0, level.groups);",
-    "replace": "  const icons = CARD_ICONS.map((_, index) => index).slice(0, level.groups);",
-    "note": "значки «Запомни пары» всегда с начала списка — у всех узлов один набор"
-  },
-  {
     "id": "sudoku-seeds-run-out",
-    "file": "src/data/quest.ts",
+    "file": "src/data/questDeals.ts",
     "find": "  return SUDOKU_SEEDS[Math.max(0, Math.round(variant)) % SUDOKU_SEEDS.length] ?? 4201;",
     "replace": "  return SUDOKU_SEEDS[Math.max(0, Math.round(variant)) % 5] ?? 4201;",
     "note": "seed'ов снова пять на восемь узлов — варианты 0 и 5 дают одно поле"
   },
   {
-    "id": "word-variant-ignored",
-    "file": "src/data/quest.ts",
-    "find": "  const rng = makeRng(5300 + wordTierIndex(step) * 6421 + Math.max(0, Math.round(variant)) * 197);",
-    "replace": "  const rng = makeRng(5300 + wordTierIndex(step) * 6421);",
-    "note": "вариант перестал влиять на слова — все узлы ступени получают одни и те же"
-  },
-  {
-    "id": "quiz-variant-ignored",
-    "file": "src/data/quest.ts",
-    "find": "  const rng = makeRng(9100 + quizTierIndex(step) * 7919 + Math.max(0, Math.round(variant)) * 131);",
-    "replace": "  const rng = makeRng(9100 + quizTierIndex(step) * 7919);",
-    "note": "вариант перестал влиять на вопросы — «от уровней нет усложнения» возвращается"
-  },
-  {
     "id": "mahjong-variant-ignored",
-    "file": "src/data/quest.ts",
+    "file": "src/data/questDeals.ts",
     "find": "    1000 + Math.max(0, Math.round(variant)) * 37,",
     "replace": "    1000,",
     "note": "стол маджонга перестал зависеть от узла — везде один расклад"
@@ -285,5 +264,2847 @@
     "find": "    this.wordIndex = 0;\n    this.word = '';\n",
     "replace": "    this.wordIndex = 0;\n",
     "note": "в «Make a word» кнопка-динамик на новом заходе до первого слова читает слово прошлой игры"
+  },
+  {
+    "id": "erase-skill-forgotten",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  return replaceProgress(sound, 'erase', meta);",
+    "replace": "  const skill = rawKey(SPECS.skill.key);\n  return replaceProgress(skill === null ? sound : { ...sound, [SPECS.skill.key]: skill }, 'erase', meta);",
+    "note": "«Стереть весь прогресс» оставляет ступени: после стирания задачки остаются трудными"
+  },
+  {
+    "id": "erase-scene-own-list",
+    "file": "src/scenes/parentsMenu.ts",
+    "find": "onYes: () => afterErase(scene, eraseAllProgress()),",
+    "replace": "onYes: () => { save.resetAll(); scene.scene.restart(); },",
+    "note": "уголок взрослых стирает по своему короткому списку, а не по общему"
+  },
+  {
+    "id": "eye-after-joy-full-size",
+    "file": "src/entities/Diplodocus.ts",
+    "find": "this.eyeOpen.setScale(this.eyeRestScale)",
+    "replace": "this.eyeOpen.setScale(1)",
+    "note": "после радости глаз диплодока вырастает втрое и висит над головой"
+  },
+  {
+    "id": "eye-rest-scale-art-ignored",
+    "file": "src/art/dinoLayout.ts",
+    "find": "return art ? meshScale : 1;",
+    "replace": "return 1;",
+    "note": "у рисованного диплодока глаз в покое не ужат и торчит крупным пятном"
+  },
+  {
+    "id": "album-dots-return",
+    "file": "src/scenes/CollectionScene.ts",
+    "find": "    const backButton = createRoundButton(",
+    "replace": "    this.add.circle(0, 0, 12, PALETTE.gold);\n    const backButton = createRoundButton(",
+    "note": "в «Моих сокровищах» снова ряд точек, дублирующий предметы"
+  },
+  {
+    "id": "album-backpack-over-counter",
+    "file": "src/art/treasureLayout.ts",
+    "find": "backpackY: 45,",
+    "replace": "backpackY: -100,",
+    "note": "рюкзак в альбоме налезает на «N из M»"
+  },
+  {
+    "id": "album-back-off-panel",
+    "file": "src/art/treasureLayout.ts",
+    "find": "backY: 220,",
+    "replace": "backY: 300,",
+    "note": "кнопка «назад» в альбоме уходит за нижний край панели"
+  },
+  {
+    "id": "album-grid-under-counter",
+    "file": "src/art/treasureLayout.ts",
+    "find": "left: -ALBUM_PANEL.width / 2 + ALBUM_PANEL.margin,",
+    "replace": "left: -300,",
+    "note": "сетка альбома сдвинута вправо и наезжает на «N из M»"
+  },
+  {
+    "id": "erase-v1-collection-kept",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    else if (key.startsWith(V1_PREFIX) && !(key in v1)) removeKey(key);",
+    "replace": "    else if (false && key.startsWith(V1_PREFIX) && !(key in v1)) removeKey(key);",
+    "note": "«Стереть весь прогресс» оставляет музей первой версии, и он возвращается в «Мои сокровища»"
+  },
+  {
+    "id": "eye-rest-scale-wiring",
+    "file": "src/entities/dinoParts.ts",
+    "find": "eyeRestScale: eyeFit,",
+    "replace": "eyeRestScale: 1,",
+    "note": "после радости глаз диплодока возвращается крупным пятном: покой записан единицей"
+  },
+  {
+    "id": "eye-blink-absolute",
+    "file": "src/entities/dinoRig.ts",
+    "find": "scaleY: dinoBlinkScaleY(this.eyeRestScale),",
+    "replace": "scaleY: 0.08,",
+    "note": "моргание рисованного глаза задаёт свой масштаб и растягивает его вместо прищура"
+  },
+  {
+    "id": "eye-blink-ignores-rest",
+    "file": "src/art/dinoLayout.ts",
+    "find": "return restScale * EYE_BLINK;",
+    "replace": "return EYE_BLINK;",
+    "note": "моргание не считает от покоя глаза: рисованный глаз не прищуривается, а меняет размер"
+  },
+  {
+    "id": "album-grid-no-margin",
+    "file": "src/art/treasureLayout.ts",
+    "find": "left: -ALBUM_PANEL.width / 2 + ALBUM_PANEL.margin,",
+    "replace": "left: -ALBUM_PANEL.width / 2,",
+    "note": "сетка альбома липнет к самому краю панели"
+  },
+  {
+    "id": "album-block-shifted-left",
+    "file": "src/art/treasureLayout.ts",
+    "find": "const centerX = ALBUM_GRID.left + ((ALBUM_COLUMNS - 1) * step) / 2 + slot / 2;",
+    "replace": "const centerX = ALBUM_GRID.left + ((ALBUM_COLUMNS - 1) * step) / 2;",
+    "note": "сетка альбома съехала на пол-ячейки влево и вылезла за край панели"
+  },
+  {
+    "id": "album-block-shifted-right",
+    "file": "src/art/treasureLayout.ts",
+    "find": "const centerX = ALBUM_GRID.left + ((ALBUM_COLUMNS - 1) * step) / 2 + slot / 2;",
+    "replace": "const centerX = ALBUM_GRID.left + ((ALBUM_COLUMNS - 1) * step) / 2 + slot;",
+    "note": "сетка альбома съехала на пол-ячейки вправо и наезжает на «N из M»"
+  },
+  {
+    "id": "album-grid-top-aligned",
+    "file": "src/art/treasureLayout.ts",
+    "find": "const centerY = (ALBUM_GRID.top + ALBUM_GRID.bottom) / 2;",
+    "replace": "const centerY = ALBUM_GRID.top;",
+    "note": "сетка альбома уехала вверх и закрыла заголовок"
+  },
+  {
+    "id": "album-counter-on-backpack",
+    "file": "src/art/treasureLayout.ts",
+    "find": "y: ALBUM_SIDE.counterY, text",
+    "replace": "y: ALBUM_SIDE.backpackY, text",
+    "note": "«N из M» в альбоме стоит на рюкзаке"
+  },
+  {
+    "id": "album-scene-swaps-counts",
+    "file": "src/scenes/CollectionScene.ts",
+    "find": "albumSide(found, total)",
+    "replace": "albumSide(total, found)",
+    "note": "в альбоме написано «8 из 5» вместо «5 из 8»"
+  },
+  {
+    "id": "album-scene-own-layout",
+    "file": "src/scenes/CollectionScene.ts",
+    "find": "albumLayout(count)",
+    "replace": "albumLayout(Math.max(count, 8))",
+    "note": "сцена альбома считает раскладку не тем числом предметов"
+  },
+  {
+    "id": "wordpick-wrong-clears-path",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (options.length === 0) return { kind: 'wrong' };",
+    "replace": "if (options.length === 0) {\n      path = [];\n      return { kind: 'wrong' };\n    }",
+    "note": "неверная буква сбрасывает выбранные буквы: ошибка стоит всего пути"
+  },
+  {
+    "id": "wordpick-trim-keeps-tail",
+    "file": "src/systems/wordPick.ts",
+    "find": "path = path.slice(0, at);",
+    "replace": "path = path.filter((_, i) => i !== at);",
+    "note": "клик по выбранной букве снимает только её, а не всё после неё: в пути дыра"
+  },
+  {
+    "id": "wordpick-found-restartable",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (found.has(place.word)) return false;",
+    "replace": "if (found.has(place.word) && false) return false;",
+    "note": "найденное слово можно начать искать снова"
+  },
+  {
+    "id": "wordpick-drag-shouts",
+    "file": "src/systems/wordPick.ts",
+    "find": "return result.kind === 'wrong' ? { kind: 'ignore' } : result;",
+    "replace": "return result;",
+    "note": "мышь, протянутая по диагонали, трясёт все чужие плитки по дороге"
+  },
+  {
+    "id": "wordpick-drag-starts-path",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (path.length === 0 || path.some((item) => same(item, cell))) return { kind: 'ignore' };",
+    "replace": "if (path.some((item) => same(item, cell))) return { kind: 'ignore' };",
+    "note": "протягивание по полю без нажатия на первую букву начинает слово"
+  },
+  {
+    "id": "wordpick-start-anywhere",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (done !== undefined) {",
+    "replace": "if (done !== undefined || next.length >= 3) {",
+    "note": "слово засчитывается по любым трём буквам подряд"
+  },
+  {
+    "id": "wordfill-first-letters-allowed",
+    "file": "src/systems/wordFill.ts",
+    "find": "if (rules.banFirstLetters && firsts.has(letter)) return false;",
+    "replace": "",
+    "note": "на поле лежат одинокие первые буквы слов: самый частый неверный первый клик"
+  },
+  {
+    "id": "wordfill-repeats-unlimited",
+    "file": "src/systems/wordFill.ts",
+    "find": "rules.limitRepeats && (counts.get(letter) ?? 0) >= MAX_SAME_LETTER",
+    "replace": "false",
+    "note": "одна и та же буква на поле до девяти раз"
+  },
+  {
+    "id": "wordfill-repeats-four",
+    "file": "src/systems/wordFill.ts",
+    "find": "export const MAX_SAME_LETTER = 3;",
+    "replace": "export const MAX_SAME_LETTER = 4;",
+    "note": "одна и та же случайная буква встречается четыре раза"
+  },
+  {
+    "id": "wordfill-false-starts-allowed",
+    "file": "src/systems/wordFill.ts",
+    "find": "(rules.banFalseStarts && startsFalsely(letters, placements, owners, row, col))",
+    "replace": "false",
+    "note": "пара `lo` не там, где лежит love, читается как начало слова, которого нет"
+  },
+  {
+    "id": "wordfill-stray-allowed",
+    "file": "src/systems/wordFill.ts",
+    "find": "strayThrough(letters, words, known, row, col) ||",
+    "replace": "false ||",
+    "note": "случайные буквы дописывают слово в чужом месте: ребёнок находит его, а игра не засчитывает"
+  },
+  {
+    "id": "wordgrid-layout-false-start-ignored",
+    "file": "src/systems/wordGrid.ts",
+    "find": "if (!layoutFalseStart(letters, layout)) {",
+    "replace": "if (true) {",
+    "note": "слова ложатся так, что буквы двух слов рядом читаются как начало третьего"
+  },
+  {
+    "id": "anagram-spelled-allowed",
+    "file": "src/systems/anagramDeal.ts",
+    "find": "return chars.filter((ch) => word.includes(ch)).join('') === word;",
+    "replace": "return false;",
+    "note": "плитки «Make a word» могут выпасть уже готовым словом"
+  },
+  {
+    "id": "anagram-extra-from-word",
+    "file": "src/systems/anagramDeal.ts",
+    "find": ".filter((ch) => !inWord.has(ch))",
+    "replace": ".filter(() => true)",
+    "note": "лишняя плитка бывает буквой самого слова, и слово собирается двумя способами"
+  },
+  {
+    "id": "english-are-old-translation",
+    "file": "src/data/english.ts",
+    "find": "ru: 'Мы — друзья'",
+    "replace": "ru: 'мы есть'",
+    "note": "are снова переводится «мы есть»"
+  },
+  {
+    "id": "search-tiles-translucent",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "const tile = this.add.image(x, y, TEX.LETTER_TILE).setDisplaySize(side, side).setDepth(2);",
+    "replace": "const tile = this.add.image(x, y, TEX.LETTER_TILE).setDisplaySize(side, side).setDepth(2).setAlpha(0.92);",
+    "note": "плитки поля полупрозрачные: сквозь них просвечивает панель"
+  },
+  {
+    "id": "search-found-word-faded",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "row.text.setColor(hex(FOUND_WORD_COLOR));",
+    "replace": "row.text.setColor(hex(FOUND_WORD_COLOR));\n      row.text.setAlpha(0.6);",
+    "note": "найденное слово в списке бледнеет полупрозрачностью"
+  },
+  {
+    "id": "hint-dim-translucent",
+    "file": "src/scenes/englishUi.ts",
+    "find": "circle.setFillStyle(PALETTE.uiButtonCalm);",
+    "replace": "circle.setAlpha(0.45);",
+    "note": "кнопка «?» у найденного слова полупрозрачная и читается сломанной"
+  },
+  {
+    "id": "search-seed-from-set",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "this.seed = data.seed ?? randomSeed();",
+    "replace": "this.seed = data.seed ?? 4200 + data.setIndex * 97;",
+    "note": "поле «Find a word» снова одно и то же при каждом заходе"
+  },
+  {
+    "id": "anagram-seed-from-set",
+    "file": "src/scenes/EnglishAnagramScene.ts",
+    "find": "this.seed = data.seed ?? randomSeed();",
+    "replace": "this.seed = data.seed ?? 7100 + data.setIndex * 31;",
+    "note": "плитки «Make a word» снова лежат одинаково при каждом заходе"
+  },
+  {
+    "id": "rng-random-seed-constant",
+    "file": "src/systems/rng.ts",
+    "find": "return Math.floor(Math.random() * 2147483647) + 1;",
+    "replace": "return 12345;",
+    "note": "каждый заход получает один и тот же seed"
+  },
+  {
+    "id": "wordpick-press-trims-at-once",
+    "file": "src/systems/wordPick.ts",
+    "find": "        gesture = 'hold';\n        held = cell;\n        return { kind: 'ignore' };",
+    "replace": "        return trimAt(path.findIndex((item) => same(item, cell)));",
+    "note": "нажатие на последнюю выбранную букву снимает её сразу: ребёнок тянет дальше, а она гаснет"
+  },
+  {
+    "id": "wordpick-dead-gesture-shakes",
+    "file": "src/systems/wordPick.ts",
+    "find": "gesture = result.kind === 'wrong' ? 'dead' : result.kind === 'found' ? 'idle' : 'live';",
+    "replace": "gesture = result.kind === 'found' ? 'idle' : 'live';",
+    "note": "нажал на неверную и протянул на другую неверную — дрожат обе"
+  },
+  {
+    "id": "wordpick-drag-min-ignored",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (gesture === 'dead' || travelled < SEARCH_DRAG_MIN) return { kind: 'ignore' };",
+    "replace": "if (gesture === 'dead') return { kind: 'ignore' };",
+    "note": "небрежный клик на стыке плиток добавляет вторую букву"
+  },
+  {
+    "id": "wordpick-hold-middle-grows",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (cell === null || (gesture === 'hold' && !holdsLast())) return { kind: 'ignore' };",
+    "replace": "if (cell === null) return { kind: 'ignore' };",
+    "note": "нажал на среднюю выбранную букву и повёл — путь растёт с конца"
+  },
+  {
+    "id": "wordpick-release-in-path-wrong",
+    "file": "src/systems/wordPick.ts",
+    "find": "      if (path.some((item) => same(item, cell))) return { kind: 'ignore' };\n      return { kind: 'wrong' };",
+    "replace": "      return { kind: 'wrong' };",
+    "note": "отпустил кнопку на выбранной букве после протягивания — она дрожит как неверная"
+  },
+  {
+    "id": "wordpick-release-click-wrong",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (was === 'idle' || was === 'dead' || !grew || cell === null) return { kind: 'ignore' };",
+    "replace": "if (was === 'idle' || was === 'dead' || cell === null) return { kind: 'ignore' };",
+    "note": "обычный клик по верной букве заканчивается дрожью: отпускание читается как «остановился на неверной»"
+  },
+  {
+    "id": "wordpick-hold-release-ignores-drag",
+    "file": "src/systems/wordPick.ts",
+    "find": "if (was === 'hold' && !grew) {",
+    "replace": "if (was === 'hold') {",
+    "note": "протянул от выбранной и вернулся на неё — буква снимается"
+  },
+  {
+    "id": "wordpick-found-gesture-stays-live",
+    "file": "src/systems/wordPick.ts",
+    "find": "gesture = result.kind === 'wrong' ? 'dead' : result.kind === 'found' ? 'idle' : 'live';",
+    "replace": "gesture = result.kind === 'wrong' ? 'dead' : 'live';",
+    "note": "слово найдено нажатием, кнопку отпустили на его последней букве — она дрожит как неверная"
+  },
+  {
+    "id": "search-drag-min-tiny",
+    "file": "src/art/englishLayout.ts",
+    "find": "export const SEARCH_DRAG_MIN = 16;",
+    "replace": "export const SEARCH_DRAG_MIN = 3;",
+    "note": "порог протягивания меньше просвета между плитками: дрожь руки на стыке добавляет букву"
+  },
+  {
+    "id": "search-cell-at-gap-counts",
+    "file": "src/art/englishLayout.ts",
+    "find": "Math.abs(x - centre.x) <= cell / 2 &&",
+    "replace": "Math.abs(x - centre.x) <= (cell + SEARCH_GRID.gap) / 2 &&",
+    "note": "просвет между плитками читается как плитка: протягивание цепляет чужую букву"
+  },
+  {
+    "id": "wordfill-rounds-first-before-starts",
+    "file": "src/systems/wordFill.ts",
+    "find": "  { limitRepeats: false, banFirstLetters: false, banFalseStarts: true },",
+    "replace": "  { limitRepeats: false, banFirstLetters: true, banFalseStarts: false },",
+    "note": "на тесном поле досыпка раньше снимает запрет ложных начал, чем запрет первых букв: на поле ложное начало вместо одинокой первой буквы"
+  },
+  {
+    "id": "wordfill-drop-repeats-round",
+    "file": "src/systems/wordFill.ts",
+    "find": "  { limitRepeats: false, banFirstLetters: true, banFalseStarts: true },\n",
+    "replace": "",
+    "note": "нет круга «без предела повторов»: на тесном поле сразу появляются одинокие первые буквы"
+  },
+  {
+    "id": "wordfill-drop-first-letters-round",
+    "file": "src/systems/wordFill.ts",
+    "find": "  { limitRepeats: false, banFirstLetters: false, banFalseStarts: true },\n",
+    "replace": "",
+    "note": "нет круга «первые буквы разрешены, ложные начала нет»: сразу ложные начала"
+  },
+  {
+    "id": "wordfill-fallback-always-a",
+    "file": "src/systems/wordFill.ts",
+    "find": "const letter = chosen ?? rng.pick(ALPHABET.split(''));",
+    "replace": "const letter = chosen ?? 'a';",
+    "note": "запасная буква всегда `a`: в безвыходном поле пустые клетки забиваются одной буквой"
+  },
+  {
+    "id": "search-dots-own-number",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "createProgressDots(this, { count: this.words.length, y: SEARCH_DOTS_Y })",
+    "replace": "createProgressDots(this, { count: this.words.length, y: 126 })",
+    "note": "ряд точек стоит на своём числе, а не на месте из раскладки"
+  },
+  {
+    "id": "search-dots-y-too-low",
+    "file": "src/art/englishLayout.ts",
+    "find": "export const SEARCH_DOTS_Y = 126;",
+    "replace": "export const SEARCH_DOTS_Y = 160;",
+    "note": "ряд точек уехал на поле: точки закрыты плитками"
+  },
+  {
+    "id": "search-word-width-narrow",
+    "file": "src/art/englishLayout.ts",
+    "find": "const ENGLISH_WORD_CHAR_WIDTH = 0.7;",
+    "replace": "const ENGLISH_WORD_CHAR_WIDTH = 0.4;",
+    "note": "колонка слов считается уже самих слов: длинное слово налезает на «?»"
+  },
+  {
+    "id": "swatch-outline-grey",
+    "file": "src/art/englishLayout.ts",
+    "find": "export const SWATCH_OUTLINE = { width: 4, color: PALETTE.uiText } as const;",
+    "replace": "export const SWATCH_OUTLINE = { width: 4, color: PALETTE.uiButtonCalmDark } as const;",
+    "note": "белое пятно с серой обводкой сливается с панелью и читается пустым кружком"
+  },
+  {
+    "id": "swatch-mark-own-outline",
+    "file": "src/scenes/englishUi.ts",
+    "find": ".setStrokeStyle(SWATCH_OUTLINE.width, SWATCH_OUTLINE.color);",
+    "replace": ".setStrokeStyle(4, PALETTE.uiButtonCalmDark);",
+    "note": "значок слова в списке рисует свою серую обводку, а не общую"
+  },
+  {
+    "id": "search-done-only-on-finish",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "      markEnglishDone(this.setIndex, 'search');\n",
+    "replace": "",
+    "note": "Esc в паузе перед звездой в «Find a word» не засчитывает набор"
+  },
+  {
+    "id": "anagram-done-only-on-finish",
+    "file": "src/scenes/EnglishAnagramScene.ts",
+    "find": "    if (this.wordIndex + 1 >= this.words.length) markEnglishDone(this.setIndex, 'anagram');\n",
+    "replace": "",
+    "note": "Esc в паузе перед звездой в «Make a word» не засчитывает набор"
+  },
+  {
+    "id": "catch-done-only-on-finish",
+    "file": "src/scenes/EnglishCatchScene.ts",
+    "find": "    if (this.wordIndex + 1 >= this.words.length) markEnglishDone(this.setIndex, 'catch');\n",
+    "replace": "",
+    "note": "Esc в паузе перед звездой в «Catch letters» не засчитывает набор"
+  },
+  {
+    "id": "wordfill-drop-last-round",
+    "file": "src/systems/wordFill.ts",
+    "find": "  { limitRepeats: false, banFirstLetters: false, banFalseStarts: false },\n",
+    "replace": "",
+    "note": "запасная буква дописывает настоящее слово на поле: ребёнок находит его, а игра не засчитывает"
+  },
+  {
+    "id": "wordpick-quiet-off",
+    "file": "src/systems/wordPick.ts",
+    "find": "now - lastFound.at < FOUND_QUIET_MS &&",
+    "replace": "false &&",
+    "note": "двойной клик по последней букве слова кричит «неверно» поверх фанфары"
+  },
+  {
+    "id": "wordpick-quiet-forever",
+    "file": "src/systems/wordPick.ts",
+    "find": "now - lastFound.at < FOUND_QUIET_MS &&",
+    "replace": "now - lastFound.at < FOUND_QUIET_MS * 1e9 &&",
+    "note": "клетки найденного слова молчат навсегда: золотая буква не отвечает вовсе"
+  },
+  {
+    "id": "wordpick-quiet-time-lost",
+    "file": "src/systems/wordPick.ts",
+    "find": "at: clock }",
+    "replace": "at: 0 }",
+    "note": "защита от двойного клика считает находку случившейся в нулевую секунду и не срабатывает"
+  },
+  {
+    "id": "wordpick-quiet-press-alive",
+    "file": "src/systems/wordPick.ts",
+    "find": "      return quiet && result.kind === 'wrong' ? { kind: 'ignore' } : result;\n",
+    "replace": "      if (quiet && result.kind === 'wrong') {\n        gesture = 'idle';\n        return { kind: 'ignore' };\n      }\n      return result;\n",
+    "note": "промолчавшее нажатие не гасит жест: рука с нажатой кнопкой тянет путь дальше"
+  },
+  {
+    "id": "search-right-click-presses",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "if (this.finished || pointer.button !== 0 || !pointer.leftButtonDown()) return;",
+    "replace": "if (this.finished) return;",
+    "note": "правый клик по плитке выбирает букву"
+  },
+  {
+    "id": "search-lost-release-ignored",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "    if (pointer.noButtonDown()) {\n      this.pressed = false;\n      this.pick?.abort();\n      return;\n    }\n",
+    "replace": "",
+    "note": "после потерянного отпускания буквы загораются от простого движения мыши"
+  },
+  {
+    "id": "search-press-without-clock",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": ".press(cell, this.time.now)",
+    "replace": ".press(cell)",
+    "note": "сцена не передаёт время: защита от двойного клика спит"
+  },
+  {
+    "id": "search-drag-without-clock",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": ".drag(cell, travelled, this.time.now)",
+    "replace": ".drag(cell, travelled)",
+    "note": "слово, найденное протягиванием, не защищено от двойного клика"
+  },
+  {
+    "id": "wordpick-quiet-mutes-start",
+    "file": "src/systems/wordPick.ts",
+    "find": "return quiet && result.kind === 'wrong' ?",
+    "replace": "return quiet ?",
+    "note": "окно тишины глушит и начало нового слова с той же клетки: быстрая рука натыкается на немую плитку (002-29)"
+  },
+  {
+    "id": "wordpick-quiet-wrong-passes",
+    "file": "src/systems/wordPick.ts",
+    "find": "return quiet && result.kind === 'wrong' ?",
+    "replace": "return false && result.kind === 'wrong' ?",
+    "note": "окно тишины не глушит «неверно» после находки (то же, что quiet-off, но через итог)"
+  },
+  {
+    "id": "wordpick-abort-noop",
+    "file": "src/systems/wordPick.ts",
+    "find": "    abort(): void {\n      gesture = 'idle';\n      moved = false;\n      held = null;\n    },\n",
+    "replace": "    abort(): void {},\n",
+    "note": "потерянное отпускание не гасит жест: после протягивания плитка дрожит, на последней выбранной буква снимается (002-28)"
+  },
+  {
+    "id": "wordpick-abort-clears-path",
+    "file": "src/systems/wordPick.ts",
+    "find": "    abort(): void {\n      gesture = 'idle';\n",
+    "replace": "    abort(): void {\n      path = [];\n      gesture = 'idle';\n",
+    "note": "потерянное отпускание сносит выбранные буквы"
+  },
+  {
+    "id": "search-middle-click-presses",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "if (this.finished || pointer.button !== 0 || !pointer.leftButtonDown()) return;",
+    "replace": "if (this.finished || pointer.rightButtonDown()) return;",
+    "note": "средняя и боковые кнопки начинают жест, как левая (002-31)"
+  },
+  {
+    "id": "search-lost-release-verdict",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "      this.pressed = false;\n      this.pick?.abort();\n",
+    "replace": "      this.onRelease(pointer);\n",
+    "note": "потерянное отпускание выносит вердикт на плитке под курсором: «неверно» без нажатия (002-28); e2e в searchInput.spec.ts краснеет, vitest — на строковой проводке"
+  },
+  {
+    "id": "search-lost-release-pressed-stays",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "      this.pressed = false;\n      this.pick?.abort();\n",
+    "replace": "      this.pick?.abort();\n",
+    "note": "после потерянного отпускания сцена считает кнопку нажатой и зовёт abort на каждом движении"
+  },
+  {
+    "id": "search-second-button-presses",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "if (this.finished || pointer.button !== 0 || !pointer.leftButtonDown()) return;",
+    "replace": "if (this.finished || !pointer.leftButtonDown()) return;",
+    "note": "правая, нажатая поверх зажатой левой, считается нажатием: чужая плитка дрожит (002-33)"
+  },
+  {
+    "id": "search-second-button-releases",
+    "file": "src/scenes/EnglishSearchScene.ts",
+    "find": "if (pointer.button !== 0 || !this.pressed) return;",
+    "replace": "if (!this.pressed) return;",
+    "note": "отпускание правой кончает жест левой и выносит вердикт на чужой плитке (002-33)"
+  },
+  {
+    "id": "wordpick-quiet-any-cell",
+    "file": "src/systems/wordPick.ts",
+    "find": "        now - lastFound.at < FOUND_QUIET_MS &&\n        lastFound.cells.some((item) => same(item, cell));",
+    "replace": "        now - lastFound.at < FOUND_QUIET_MS;",
+    "note": "окно тишины глушит «неверно» на любой клетке, а не только найденного слова (002-26)"
+  },
+  {
+    "id": "wordpick-quiet-before-hold",
+    "file": "src/systems/wordPick.ts",
+    "find": "      if (path.some((item) => same(item, cell))) {\n        gesture = 'hold';",
+    "replace": "      if (\n        !(lastFound !== null && now - lastFound.at < FOUND_QUIET_MS) &&\n        path.some((item) => same(item, cell))\n      ) {\n        gesture = 'hold';",
+    "note": "в окне тишины выбранная буква не держится: вторая половина двойного клика по только что начатому слову молчит и не снимает её (002-32)"
+  },
+  {
+    "id": "shots-skip-tween-wait",
+    "file": "src/dev/shots.ts",
+    "find": "if (shot.keepsTweening !== true) await untilTweensEnd(game, shot.scene);",
+    "replace": "",
+    "note": "обход снова снимает «Мои сокровища» на трети появившихся предметов"
+  },
+  {
+    "id": "shots-lag-smooth-kept",
+    "file": "src/dev/shots.ts",
+    "find": "noLagSmoothing(game);",
+    "replace": "",
+    "note": "твины в Chrome без окна отстают от часов, кадр снимается недорисованным"
+  },
+  {
+    "id": "shots-chain-loop-ignored",
+    "file": "src/dev/settled.ts",
+    "find": "tween.loop === -1 || ",
+    "replace": "",
+    "note": "бесконечная цепочка твинов держит кадр вечно: «экран не улёгся»"
+  },
+  {
+    "id": "store-quarantine-skipped",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (!decoded.lossless) quarantine(spec.key, raw);\n",
+    "replace": "",
+    "note": "битая строка читается, а её копия не откладывается: следующая запись стирает узлы навсегда"
+  },
+  {
+    "id": "quarantine-last-wins",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (there !== null) {\n      held.set(key, raw);\n      noteStore('broken-again', { key: shortKey(key), why: 'slot-taken' });\n      return;\n    }",
+    "replace": "    if (there !== null) {\n      put(slot, raw);\n      return;\n    }",
+    "note": "вторая поломка того же ключа затирает первую копию: ценная копия обрезанных узлов пропадает после отката и возврата игры"
+  },
+  {
+    "id": "quarantine-frees-backup",
+    "file": "src/systems/saveStore.ts",
+    "find": "      localStorage.removeItem(spare);\n      removed = true;",
+    "replace": "      localStorage.removeItem(spare);\n      localStorage.removeItem('diplodok-kladoiskatel:backup');\n      removed = true;",
+    "note": "на переполнении игра удаляет резервную копию перед стиранием — единственный путь вернуть стёртое"
+  },
+  {
+    "id": "write-no-quota-retry",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (!isQuota(error)) return 'error';\n  }\n  // Одноразовые",
+    "replace": "    return 'error';\n  }\n  // Одноразовые",
+    "note": "на переполнении запись не повторяется: узел решён, а наклейка не сохраняется навсегда"
+  },
+  {
+    "id": "decode-levels-raw",
+    "file": "src/systems/saveKeys.ts",
+    "find": "    return { value, lossless };",
+    "replace": "    return { value: data as Record<string, string[]>, lossless };",
+    "note": "найденные клады отдаются как есть, с мусором: сохранённое значение снова читается как битое"
+  },
+  {
+    "id": "write-skips-quarantine",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (lossy) quarantine(spec.key, old);\n",
+    "replace": "",
+    "note": "запись вслепую (лес, звук) затирает битую строку без копии"
+  },
+  {
+    "id": "quarantine-no-limit",
+    "file": "src/systems/saveStore.ts",
+    "find": "    const fits = brokenSize() + slot.length + raw.length <= CONFIG.save.brokenMaxBytes;",
+    "replace": "    const fits = true;",
+    "note": "копии битого растут без предела и съедают место у прогресса"
+  },
+  {
+    "id": "quarantine-held-forgotten",
+    "file": "src/systems/saveStore.ts",
+    "find": "    } else {\n      held.set(key, raw);\n      noteStore('broken-again', { key: shortKey(key), why: fits ? 'no-space' : 'limit' });\n    }\n  } catch {",
+    "replace": "    } else {\n      void raw;\n    }\n  } catch {",
+    "note": "исходник, который не легла отложить, пропадает и из отчёта"
+  },
+  {
+    "id": "retry-on-any-error",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (!isQuota(error)) return 'error';\n  }\n  // Одноразовые",
+    "replace": "    void error;\n  }\n  // Одноразовые",
+    "note": "любой сбой записи, не связанный с местом, сносит журнал и последний сбой для отчёта"
+  },
+  {
+    "id": "decode-lossless-always",
+    "file": "src/systems/saveKeys.ts",
+    "find": "  return { value, lossless: value.length === data.length };\n}\n\nfunction numberArray",
+    "replace": "  return { value, lossless: true };\n}\n\nfunction numberArray",
+    "note": "выброшенный из списка элемент (`[\"q1\",5]`) не считается потерей и копии не будет"
+  },
+  {
+    "id": "decode-skill-no-clamp",
+    "file": "src/systems/saveKeys.ts",
+    "find": "Math.min(SKILL_STEP_MAX, Math.max(0, Math.round(step)))",
+    "replace": "Math.round(step)",
+    "note": "ступень 99 или -2 из сохранения идёт в игру как есть"
+  },
+  {
+    "id": "decode-current-no-floor",
+    "file": "src/systems/saveKeys.ts",
+    "find": "{ value: Math.floor(data), lossless: true }",
+    "replace": "{ value: data, lossless: true }",
+    "note": "кнопка «Играть» ведёт в лес с дробным номером"
+  },
+  {
+    "id": "decode-levels-loss-ignored",
+    "file": "src/systems/saveKeys.ts",
+    "find": "        lossless &&= part.lossless;\n",
+    "replace": "",
+    "note": "клад с мусором внутри списка леса теряется без копии"
+  },
+  {
+    "id": "settings-erasable",
+    "file": "src/systems/saveKeys.ts",
+    "find": "  fallback: () => ({ muted: false }),\n  decode: (data) =>\n    isRecord(data) && typeof data['muted'] === 'boolean'\n      ? { value: { muted: data['muted'] }, lossless: true }\n      : { value: { muted: false }, lossless: false },\n  erasable: false,",
+    "replace": "  fallback: () => ({ muted: false }),\n  decode: (data) =>\n    isRecord(data) && typeof data['muted'] === 'boolean'\n      ? { value: { muted: data['muted'] }, lossless: true }\n      : { value: { muted: false }, lossless: false },\n  erasable: true,",
+    "note": "«Стереть всё» будет трогать звук взрослого"
+  },
+  {
+    "id": "key-stickers-renamed",
+    "file": "src/systems/saveKeys.ts",
+    "find": "key: SAVE_PREFIX + 'v3:quest-stickers',",
+    "replace": "key: SAVE_PREFIX + 'v3:quest-sticker',",
+    "note": "ключ наклеек переименован: у играющего пропали все наклейки"
+  },
+  {
+    "id": "key-completed-renamed",
+    "file": "src/systems/saveKeys.ts",
+    "find": "key: SAVE_PREFIX + 'v2:completed',",
+    "replace": "key: SAVE_PREFIX + 'v2:complete',",
+    "note": "ключ пройденных лесов переименован: пропал прогресс по лесам"
+  },
+  {
+    "id": "key-collection-renamed",
+    "file": "src/systems/saveKeys.ts",
+    "find": "key: SAVE_PREFIX + 'v2:collection',",
+    "replace": "key: SAVE_PREFIX + 'v2:museum',",
+    "note": "ключ музея переименован: «Мои сокровища» пусты"
+  },
+  {
+    "id": "key-english-renamed",
+    "file": "src/systems/saveKeys.ts",
+    "find": "key: SAVE_PREFIX + 'v3:english-done',",
+    "replace": "key: SAVE_PREFIX + 'v3:english',",
+    "note": "ключ английской ветки переименован: пройденные игры забыты"
+  },
+  {
+    "id": "write-before-quarantine",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (lossy) quarantine(spec.key, old);\n  const text = JSON.stringify(\n    museumMissing && spec.key === SPECS.collection.key ? withFirstMuseum(value as string[]) : value,\n  );\n  let result = putResult(spec.key, text);",
+    "replace": "  const text = JSON.stringify(\n    museumMissing && spec.key === SPECS.collection.key ? withFirstMuseum(value as string[]) : value,\n  );\n  let result = putResult(spec.key, text);\n  if (lossy) quarantine(spec.key, old);",
+    "note": "запись нового идёт раньше копии старого: закрытая вкладка между ними стирает битое бесследно"
+  },
+  {
+    "id": "limit-strict",
+    "file": "src/systems/saveStore.ts",
+    "find": "raw.length <= CONFIG.save.brokenMaxBytes",
+    "replace": "raw.length < CONFIG.save.brokenMaxBytes",
+    "note": "копия, ровно влезающая в предел, не откладывается"
+  },
+  {
+    "id": "limit-values-only",
+    "file": "src/systems/saveStore.ts",
+    "find": "total += key.length + (localStorage.getItem(key) ?? '').length;",
+    "replace": "total += (localStorage.getItem(key) ?? '').length;",
+    "note": "длина имён ключей не считается в пределе копий: хранилище переполняется копиями"
+  },
+  {
+    "id": "skill-infinite-kept",
+    "file": "src/systems/saveKeys.ts",
+    "find": "        typeof entry[1] === 'number' && Number.isFinite(entry[1]),",
+    "replace": "        typeof entry[1] === 'number',",
+    "note": "бесконечная ступень считается целой и уходит в игру без копии"
+  },
+  {
+    "id": "quota-null-thrown",
+    "find": "(error ?? {}) as",
+    "replace": "error as",
+    "file": "src/systems/saveStore.ts",
+    "note": "хранилище, бросившее null, роняет запись"
+  },
+  {
+    "id": "write-keeps-own-copy",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (result === 'full') {\n    for (const key of releaseOrder",
+    "replace": "  if (false as boolean) {\n    for (const key of releaseOrder",
+    "note": "свежая копия занимает место: после переполнения игра больше не сохраняет"
+  },
+  {
+    "id": "quarantine-only-same-key",
+    "file": "src/systems/saveStore.ts",
+    "find": "for (const key of releaseOrder(spec.key)) {",
+    "replace": "for (const key of [spec.key]) {",
+    "note": "копия битого v2:levels навсегда мешает записи решённого узла (освобождается только копия того же ключа)"
+  },
+  {
+    "id": "write-drops-foreign-copy",
+    "file": "src/systems/saveStore.ts",
+    "find": "if (raw === null || getRaw(brokenKey(key)) !== raw) return false;",
+    "replace": "if (raw === null || getRaw(brokenKey(key)) === null) return false;",
+    "note": "на переполнении стирается любая копия слота, в том числе ранняя чужая"
+  },
+  {
+    "id": "write-copy-not-held",
+    "file": "src/systems/saveStore.ts",
+    "find": "  removeKey(brokenKey(key));\n  held.set(key, raw);\n  return true;",
+    "replace": "  removeKey(brokenKey(key));\n  return true;",
+    "note": "свежая копия стирается, но в отчёт не попадает"
+  },
+  {
+    "id": "write-release-skips-remove",
+    "file": "src/systems/saveStore.ts",
+    "find": "  removeKey(brokenKey(key));\n  held.set(key, raw);",
+    "replace": "  held.set(key, raw);",
+    "note": "копия уходит в отчёт, но слот остаётся занятым: повтор записи снова упирается в место"
+  },
+  {
+    "id": "write-release-null-raw",
+    "file": "src/systems/saveStore.ts",
+    "find": "if (raw === null || getRaw",
+    "replace": "if (getRaw",
+    "note": "у ключей, которых нет, «копия» находится, и в отчёт попадает пустота"
+  },
+  {
+    "id": "write-release-on-error",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (result === 'full') {\n    for (const key of releaseOrder",
+    "replace": "  if (result !== 'ok') {\n    for (const key of releaseOrder",
+    "note": "любой сбой записи (не место) стирает свежую копию битого"
+  },
+  {
+    "id": "write-no-retry-after-release",
+    "file": "src/systems/saveStore.ts",
+    "find": "      if (!releaseCopy(key)) continue;\n      result = putResult(spec.key, text);\n      if (result !== 'full') break;",
+    "replace": "      if (!releaseCopy(key)) continue;\n      break;",
+    "note": "копия освобождена, а запись не повторена: узел всё равно не решён"
+  },
+  {
+    "id": "write-retry-twice",
+    "file": "src/systems/saveStore.ts",
+    "find": "      result = putResult(spec.key, text);\n      if (result !== 'full') break;",
+    "replace": "      result = putResult(spec.key, text);\n      if (result === 'full') result = putResult(spec.key, text);\n      if (result !== 'full') break;",
+    "note": "повтор записи после освобождения копии идёт дважды"
+  },
+  {
+    "id": "write-full-as-error",
+    "file": "src/systems/saveStore.ts",
+    "find": "    return isQuota(error) ? 'full' : 'error';",
+    "replace": "    return 'error';",
+    "note": "итог «места нет» после повтора принимается за обычный сбой: копия не освобождается"
+  },
+  {
+    "id": "write-first-failure-full",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (!isQuota(error)) return 'error';\n  }\n  // Одноразовые",
+    "replace": "    return isQuota(error) ? 'full' : 'error';\n  }\n  // Одноразовые",
+    "note": "журнал и сбой не убираются перед повтором на переполнении"
+  },
+  {
+    "id": "write-ok-on-full",
+    "file": "src/systems/saveStore.ts",
+    "find": "  writeOk = result === 'ok';",
+    "replace": "  writeOk = result !== 'error';",
+    "note": "запись, не легшая из-за места, считается удавшейся: строка «Прогресс сохранён» лжёт"
+  },
+  {
+    "id": "store-held-not-cleared",
+    "file": "src/systems/saveStore.ts",
+    "find": "  held.clear();",
+    "replace": "  void held;",
+    "note": "забытое в памяти переживает clearHeldBack"
+  },
+  {
+    "id": "peek-reads-through-quarantine",
+    "file": "src/systems/saveStore.ts",
+    "find": "  return raw === null ? spec.fallback() : decodeRaw(spec, raw).value;",
+    "replace": "  return raw === null ? spec.fallback() : readKey(spec);",
+    "note": "peekKey откладывает копию, хотя обещал читать без следов"
+  },
+  {
+    "id": "quota-code-22-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "    code === 22 ||\n",
+    "replace": "",
+    "note": "переполнение с кодом 22 и чужим именем не лечится повтором"
+  },
+  {
+    "id": "quota-code-1014-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "code === 1014",
+    "replace": "false",
+    "note": "переполнение с кодом 1014 и чужим именем не лечится повтором"
+  },
+  {
+    "id": "quota-firefox-name-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "    name === 'NS_ERROR_DOM_QUOTA_REACHED' ||\n",
+    "replace": "",
+    "note": "переполнение в Firefox не лечится повтором"
+  },
+  {
+    "id": "decode-current-zero-lossless",
+    "file": "src/systems/saveKeys.ts",
+    "find": "      : { value: 1, lossless: false },",
+    "replace": "      : { value: 1, lossless: data === 0 },",
+    "note": "ноль вместо номера леса считается целым значением: исходник не откладывается"
+  },
+  {
+    "id": "release-all-at-once",
+    "file": "src/systems/saveStore.ts",
+    "find": "    for (const key of releaseOrder(spec.key)) {\n      if (!releaseCopy(key)) continue;\n      result = putResult(spec.key, text);\n      if (result !== 'full') break;\n    }",
+    "replace": "    for (const key of releaseOrder(spec.key)) releaseCopy(key);\n    result = putResult(spec.key, text);",
+    "note": "на переполнении уходят все копии разом, хотя хватило бы одной: исходник чужого ключа остаётся только в памяти"
+  },
+  {
+    "id": "release-subset",
+    "file": "src/systems/saveStore.ts",
+    "find": "...PROGRESS_KEYS.map((spec) => spec.key)",
+    "replace": "...PROGRESS_KEYS.slice(0, 7).map((spec) => spec.key)",
+    "note": "копии последних двух ключей прогресса (английский, навык) не освобождаются: запись упирается в них навсегда"
+  },
+  {
+    "id": "held-never-returns",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (fits && put(slot, raw)) {\n      if (heldAlready) held.delete(key);",
+    "replace": "    if (fits && put(slot, raw)) {\n      void heldAlready;",
+    "note": "исходник остаётся в памяти, даже когда место появилось и копия легла в слот: отчёт врёт, а перезапись ключа затирает исходник"
+  },
+  {
+    "id": "held-not-returned-on-write",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (result === 'ok' && lossy && held.get(spec.key) === old) quarantine(spec.key, old, true);\n",
+    "replace": "",
+    "note": "после удачной записи ключа исходник из памяти не пробуют положить в слот: копия обрезанных лесов остаётся только в памяти сессии и пропадает при закрытии вкладки"
+  },
+  {
+    "id": "quarantine-read-retries-held",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (heldAlready && !retry) return;\n",
+    "replace": "",
+    "note": "чтение ключа, чья копия ушла в память ради чужой записи, снова кладёт её в слот, а следующая запись квеста снова убирает: хранилище крутится на каждом круге"
+  },
+  {
+    "id": "held-return-before-write",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (lossy) quarantine(spec.key, old);\n",
+    "replace": "  if (lossy) quarantine(spec.key, old, true);\n",
+    "note": "возврат копии из памяти пробуют до записи: неудачная запись тут же убирает только что положенную копию, и хранилище крутится «положил — убрал»"
+  },
+  {
+    "id": "held-return-after-failed-write",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (result === 'ok' && lossy && held.get(spec.key) === old)",
+    "replace": "  if (lossy && held.get(spec.key) === old)",
+    "note": "возврат пробуют и после неудачной записи: копия кладётся в слот и тут же убирается следующей записью, хранилище крутится"
+  },
+  {
+    "id": "held-return-ignores-limit",
+    "file": "src/systems/saveStore.ts",
+    "find": "    const fits = brokenSize() + slot.length + raw.length <= CONFIG.save.brokenMaxBytes;",
+    "replace": "    const fits = retry || brokenSize() + slot.length + raw.length <= CONFIG.save.brokenMaxBytes;",
+    "note": "на возврате из памяти предел 256 КБ на копии не проверяется: копии растут сверх предела"
+  },
+  {
+    "id": "held-kept-when-slot-has-it",
+    "file": "src/systems/saveStore.ts",
+    "find": "      if (heldAlready) held.delete(key);\n      return;",
+    "replace": "      return;",
+    "note": "исходник, который уже лежит в слоте, остаётся и в отчёте: отчёт врёт"
+  },
+  {
+    "id": "save-retry-only-first-try",
+    "file": "src/systems/saveStore.ts",
+    "find": "  let result = putResult(spec.key, text);\n  // 001-53/54/56: место заняла копия, совпадающая с текущей строкой своего ключа\n  // (этого или другого ключа прогресса) — решённый узел важнее копии. Копии\n  // освобождаются по одной, запись повторяется после каждой, пока не ляжет:\n  // убирается не больше, чем нужно записи. Освобождённое уходит в память сессии\n  // (в отчёт); исходник записываемого ключа, лежащий только там, пробуют вернуть\n  // в слот сразу после удачной записи (001-57), а не до неё.\n  if (result === 'full') {\n    for (const key of releaseOrder(spec.key)) {\n      if (!releaseCopy(key)) continue;\n      result = putResult(spec.key, text);\n      if (result !== 'full') break;\n    }\n  }\n  if (result === 'ok' && lossy && held.get(spec.key) === old) quarantine(spec.key, old, true);\n",
+    "replace": "  let result = putResult(spec.key, text);\n  const firstTry = result;\n  // 001-53/54/56: место заняла копия, совпадающая с текущей строкой своего ключа\n  // (этого или другого ключа прогресса) — решённый узел важнее копии. Копии\n  // освобождаются по одной, запись повторяется после каждой, пока не ляжет:\n  // убирается не больше, чем нужно записи. Освобождённое уходит в память сессии\n  // (в отчёт); исходник записываемого ключа, лежащий только там, пробуют вернуть\n  // в слот сразу после удачной записи (001-57), а не до неё.\n  if (result === 'full') {\n    for (const key of releaseOrder(spec.key)) {\n      if (!releaseCopy(key)) continue;\n      result = putResult(spec.key, text);\n      if (result !== 'full') break;\n    }\n  }\n  if (firstTry === 'ok' && lossy && held.get(spec.key) === old) quarantine(spec.key, old, true);\n",
+    "note": "запись леса легла после освобождения чужой копии, а обрезанный исходник леса в слот не вернулся: при следующем запуске он пропал бы насовсем"
+  },
+  {
+    "id": "save-retry-has-held",
+    "file": "src/systems/saveStore.ts",
+    "find": "lossy && held.get(spec.key) === old)",
+    "replace": "held.has(spec.key))",
+    "note": "после неудачного возврата следующая запись кладёт в слот уже понятную строку вместо обрезанного исходника: настоящая потеря остаётся только в памяти и пропадает с закрытием вкладки"
+  },
+  {
+    "id": "save-release-break-on-ok-only",
+    "file": "src/systems/saveStore.ts",
+    "find": "      if (result !== 'full') break;",
+    "replace": "      if (result === 'ok') break;",
+    "note": "после сбоя записи не из-за места игра всё равно убирает копии чужих ключей: копии пропадают зря, а запись так и не легла"
+  },
+  {
+    "id": "eye-turn-ignores-headwrap",
+    "file": "src/art/dinoLayout.ts",
+    "find": "return turn - headWrapRotation;",
+    "replace": "return turn;",
+    "note": "в радости и копании глаз диплодока поворачивается вместе с headWrap, а голова на сетке нет: глаз съезжает с головы, рядом проступает заплатка глазницы"
+  },
+  {
+    "id": "eye-turn-wiring-plain",
+    "file": "src/entities/dinoRig.ts",
+    "find": "this.headTurn.setRotation(dinoEyeTurn(turn, this.headWrap.rotation));",
+    "replace": "this.headTurn.setRotation(turn);",
+    "note": "риг снова крутит глаз за твинами headWrap: на радости глаз съезжает на пол-ширины, на копании на полтора глаза"
+  },
+  {
+    "id": "mesh-refresh-missing",
+    "file": "src/entities/dinoRig.ts",
+    "find": "    plane.refresh();\n",
+    "replace": "",
+    "note": "сетка диплодока отстаёт от глаза на шаг: на прыжке и копании голова и глаз расходятся (держит ещё e2e/dinoEye.spec.ts)"
+  },
+  {
+    "id": "mesh-x-by-height",
+    "file": "src/art/dinoWarp.ts",
+    "find": "vertex.x = (px - DINO_MESH.imageWidth / 2) / DINO_MESH.imageWidth;",
+    "replace": "vertex.x = (px - DINO_MESH.imageWidth / 2) / DINO_MESH.imageHeight;",
+    "note": "согнутая голова уезжает вбок на 7 % от расстояния до середины рисунка: глаз-накладка расходится с головой на сетке, особенно при копании"
+  },
+  {
+    "id": "leg-reach-narrow",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LEG_REACH = 0.67;",
+    "replace": "const LEG_REACH = 0.3;",
+    "note": "лапа ловит вершины только у самой оси: край лапы остаётся телу или хвосту, обводка растягивается"
+  },
+  {
+    "id": "tail-edge-at-base",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const TAIL_EDGE_X = DINO_MESH.tailBaseX - CELL_X;",
+    "replace": "const TAIL_EDGE_X = DINO_MESH.tailBaseX;",
+    "note": "хвост снова забирает вершину в трёх пикселях от края задней ближней лапы: её левая обводка растягивается на шаге ×2-4 (хвост раньше лапы)"
+  },
+  {
+    "id": "leg-first-match",
+    "file": "src/art/dinoWarp.ts",
+    "find": "      bestDistance = distance;",
+    "replace": "      bestDistance = -1;",
+    "note": "вершина между лапами достаётся первой подошедшей, а не ближайшей"
+  },
+  {
+    "id": "tail-under-hoof",
+    "file": "src/art/dinoWarp.ts",
+    "find": "(py > DINO_MESH.tailFloorY && px < TAIL_END_X)",
+    "replace": "py > DINO_MESH.tailFloorY",
+    "note": "вершины под копытами задней дальней и передней лап снова хвостовые: грань копыта рвётся о хвост"
+  },
+  {
+    "id": "head-edge-at-base",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const HEAD_EDGE = REST_LENGTH - CELL_Y / 2;",
+    "replace": "const HEAD_EDGE = REST_LENGTH;",
+    "note": "строка вершин под головой снова по ту или другую сторону границы шеи: на копании грань растягивается в 33 раза, от плеча вверх встаёт тёмная игла"
+  },
+  {
+    "id": "shoulder-slack-zero",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const SHOULDER_SLACK = 0.3;",
+    "replace": "const SHOULDER_SLACK = 0;",
+    "note": "у линии плеча наклон оси шеи решает, какая вершина строки едет: грань у плеча на копании рвётся в 3.65 раза"
+  },
+  {
+    "id": "neck-reach-narrow",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const HEAD_REACH = 4.5;",
+    "replace": "const HEAD_REACH = 1.9;",
+    "note": "голова захватывает только полосу шеи: вершины челюсти остаются телом, грань головы рвётся"
+  },
+  {
+    "id": "warp-face-owner-ignored",
+    "file": "src/art/dinoWarp.ts",
+    "find": "    const owner = owners[index];\n",
+    "replace": "    const owner: FaceOwner = null;\n    void owners[index];\n",
+    "note": "хозяин грани не читается: вершины лап и хвоста снова делятся по положению, обводки лап рвутся на шаге и в радости (И13-2)"
+  },
+  {
+    "id": "warp-croup-point",
+    "file": "src/art/dinoWarp.ts",
+    "find": "  const pivotY = Math.min(DINO_MESH.tailBaseY, Math.max(DINO_MESH.croupTopY, py));\n",
+    "replace": "  const pivotY = DINO_MESH.tailBaseY;\n",
+    "note": "ось хвоста снова в точке основания, а не на отрезке по крупу: на радости вершины высоко на спине уезжают на 40 px и на крупе встаёт ступенька (И13-2)"
+  },
+  {
+    "id": "warp-owner-by-vertex",
+    "file": "src/art/dinoWarp.ts",
+    "find": "    const cell = Math.floor(face / 2);\n",
+    "replace": "    const cell = Math.floor((face + 1) / 2);\n",
+    "note": "клетка грани сдвинута на одну грань: граница хозяев съезжает на полклетки, обводки лап и хвост рвутся (И13-2)"
+  },
+  {
+    "id": "art-owner-stale",
+    "file": "src/art/dinoArtMeta.ts",
+    "find": "    'tttttttttttttttt............22222...............',\n",
+    "replace": "    'tttttttttttttttt............33333...............',\n",
+    "note": "в карте хозяев одна лапа заменена соседней, как после перерисовки рисунка без перезапуска tools/dino_owners.py (И13-2)"
+  },
+  {
+    "id": "warp-tail-end-274",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const TAIL_END_X = (DINO_MESH.legs[1]?.x ?? 0) + (DINO_MESH.legs[1]?.width ?? 0) / 2 + CELL_X;",
+    "replace": "const TAIL_END_X = 274;",
+    "note": "кончик хвоста под лапами 1 и 2 кончается на x 274: вершины правее него — не хвост (И13-2)"
+  },
+  {
+    "id": "warp-tail-edge-two-cells",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const TAIL_EDGE_X = DINO_MESH.tailBaseX - CELL_X;",
+    "replace": "const TAIL_EDGE_X = DINO_MESH.tailBaseX - CELL_X * 2;",
+    "note": "граница хвоста на две клетки левее: вершины круп-спины у выхода хвоста остаются телом, на крупе рвётся (И13-2)"
+  },
+  {
+    "id": "warp-tail-angle-sign",
+    "file": "src/art/dinoWarp.ts",
+    "find": "rotate(vertex, bound, DINO_MESH.tailBaseX, bound.pivotY, angle * bound.weight);",
+    "replace": "rotate(vertex, bound, DINO_MESH.tailBaseX, bound.pivotY, -angle * bound.weight);",
+    "note": "хвост качается в обратную сторону от твинов (И13-2)"
+  },
+  {
+    "id": "warp-tail-fade-tenth",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const TAIL_FADE = Math.max(1, DINO_MESH.tailReach * 0.45);",
+    "replace": "const TAIL_FADE = Math.max(1, DINO_MESH.tailReach * 0.045);",
+    "note": "качание хвоста набирается в десять раз быстрее: у самого крупа он качается всем весом и рисунок рвётся по спине (И13-2)"
+  },
+  {
+    "id": "art-owner-row-shift",
+    "file": "src/art/dinoArtMeta.ts",
+    "find": "  faceOwnersRow: 32,\n  faceOwners: [\n    'tttttt.........00000.11111.22222.33333..........',\n",
+    "replace": "  faceOwnersRow: 33,\n  faceOwners: [\n",
+    "note": "первая строка карты хозяев выброшена, начало сдвинуто на ряд: хозяева выше начала карты не сверялись, мутант выживал (И13-2, находка н2)"
+  },
+  {
+    "id": "warp-owner-side-ignored",
+    "file": "src/art/dinoWarp.ts",
+    "find": "(cell % MESH_COLS) * 2 + (face % 2))",
+    "replace": "(cell % MESH_COLS) * 2)",
+    "note": "сторона грани в клетке не читается: у нижних граней хозяин верхних (И13-2)"
+  },
+  {
+    "id": "warp-tail-mid-torn",
+    "file": "src/art/dinoArtMeta.ts",
+    "find": "    '....tttttttttttttttttttt........................',\n",
+    "replace": "    '....tttttttt0000tttttttt........................',\n",
+    "note": "хвост разорван посередине: две клетки его середины ходят как лапа 0, и краска хвоста рвётся на 60 px — прежний потолок 90 px это пропускал (И13-2, находка н1)"
+  },
+  {
+    "id": "warp-tail-fade-wide",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const TAIL_FADE = Math.max(1, DINO_MESH.tailReach * 0.45);",
+    "replace": "const TAIL_FADE = Math.max(1, DINO_MESH.tailReach * 0.585);",
+    "note": "затухание качания хвоста у основания шире на 30 %: тест формулы повторял код и не замечал, нужен поведенческий потолок на крупе и хвосте (И13-2, находка н5)"
+  },
+  {
+    "id": "warp-croup-axis-low",
+    "file": "src/art/dinoWarp.ts",
+    "find": "  const pivotY = Math.min(DINO_MESH.tailBaseY, Math.max(DINO_MESH.croupTopY, py));\n",
+    "replace": "  const pivotY = Math.min(DINO_MESH.tailBaseY + 40, Math.max(DINO_MESH.croupTopY, py));\n",
+    "note": "ось крупа продолжена на 40 px ниже основания хвоста: вершины у выхода качаются вокруг не той точки (И13-2, находка н5)"
+  },
+  {
+    "id": "warp-lift-fade-slow",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LIFT_FADE = 12;",
+    "replace": "const LIFT_FADE = 30;",
+    "note": "подъём копыта набирается втрое медленнее: нога на махе складывается телескопом, а не поднимается целиком; растяжение граней этого не видит, ловит проба подъёма в 20 px под животом (И13-2, находка н6)"
+  },
+  {
+    "id": "warp-shift-uv-lost",
+    "file": "src/art/dinoWarp.ts",
+    "find": "    moveUV(vertex, shift[0] / DINO_MESH.imageWidth, shift[1] / DINO_MESH.imageHeight);\n",
+    "replace": "    void moveUV;\n",
+    "note": "вершина сдвинута в просвет, а UV остались: кусок рисунка уезжает вместе с вершиной и в покое (И13-2, вариант В)"
+  },
+  {
+    "id": "warp-shift-v-sign",
+    "file": "src/art/dinoWarp.ts",
+    "find": "    moveUV(vertex, shift[0] / DINO_MESH.imageWidth, shift[1] / DINO_MESH.imageHeight);\n",
+    "replace": "    moveUV(vertex, shift[0] / DINO_MESH.imageWidth, -shift[1] / DINO_MESH.imageHeight);\n",
+    "note": "v сдвинута в обратную сторону от y: рисунок в покое сдвинут по вертикали (И13-2, вариант В)"
+  },
+  {
+    "id": "warp-shift-ignored",
+    "file": "src/art/dinoWarp.ts",
+    "find": "    vertex.x += shift[0] / DINO_MESH.imageWidth;\n    vertex.y -= shift[1] / DINO_MESH.imageHeight;\n",
+    "replace": "",
+    "note": "сдвиги вершин не применяются: трещины по краске возвращаются до 85 px (И13-2, вариант В)"
+  },
+  {
+    "id": "warp-neck-bow-wide",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const BOW = 0.22;",
+    "replace": "const BOW = 0.4;",
+    "note": "шея выгибается дугой почти вдвое сильнее: больше плохих кадров у затылка и подбородка (И13-2, находка н4)"
+  },
+  {
+    "id": "pose-literal-jump",
+    "file": "src/entities/Diplodocus.ts",
+    "find": "      y: JOY.jump,\n",
+    "replace": "      y: -36,\n",
+    "note": "прыжок радости снова литерал в твине: тест гоняет сетку на одной позе, ребёнок видит другую (И13-2, находка н7)"
+  },
+  {
+    "id": "pose-literal-paw",
+    "file": "src/entities/Diplodocus.ts",
+    "find": "      angle: DIG.paw,\n",
+    "replace": "      angle: -34,\n",
+    "note": "угол «гребущей» лапы снова литерал в твине (И13-2, находка н7)"
+  },
+  {
+    "id": "pose-literal-chew",
+    "file": "src/entities/dinoRig.ts",
+    "find": "      angle: CHEW.headAngle,\n",
+    "replace": "      angle: 7,\n",
+    "note": "угол жевания снова литерал в твине: поза глаза в тестах разойдётся с игрой (И13-2, находка н7)"
+  },
+  {
+    "id": "parts-shift-not-called",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  shiftRestVertices(plane.vertices, (vertex, du, dv) => vertex.setUVs(vertex.u + du * (u1 - u0), vertex.v + dv * (v1 - v0)));\n",
+    "replace": "  void u0; void u1; void v0; void v1;\n",
+    "note": "сборка диплодока не зовёт сдвиг вершин: тесты считают сдвинутую сетку, а в игре стоит несдвинутая — трещины на лапах и хвосте вернулись (И13-2, вариант В)"
+  },
+  {
+    "id": "warp-samples-coarse",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const SAMPLES = 24;",
+    "replace": "const SAMPLES = 4;",
+    "note": "кривая шеи считается по четырём точкам вместо двадцати четырёх: шея ломаная, грани на изгибе вывернуты (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-lift-fade-short",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LIFT_FADE = 12;",
+    "replace": "const LIFT_FADE = 8;",
+    "note": "подъём копыта набирается на 8 px вместо 12: шов в развилке на шаге сжат до 0.39 (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-leg-fade-short",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LEG_FADE = 34;",
+    "replace": "const LEG_FADE = 24;",
+    "note": "поворот лапы набирает силу быстрее: ребро у брюха и шов расходятся сильнее (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-neck-bow-deeper",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const BOW = 0.22;",
+    "replace": "const BOW = 0.3;",
+    "note": "шея выгибается дугой сильнее: у ухудшенной шеи те же кадры хуже, считаются грани×кадры (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-shoulder-slack-wide",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const SHOULDER_SLACK = 0.3;",
+    "replace": "const SHOULDER_SLACK = 3;",
+    "note": "допуск у линии плеча в десять раз шире: плечо складывается пеньком хуже прежнего (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-joy-front-wide",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  front: -28,\n  back: 28,",
+    "replace": "  front: -34,\n  back: 34,",
+    "note": "лапы радости разведены на 34° вместо 28°: ребро у брюха и шов хуже замера (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-walk-swing-wide",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  legSwing: 16,",
+    "replace": "  legSwing: 20,",
+    "note": "размах лап на шаге 20° вместо 16°: ребро у брюха и шов хуже замера (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-walk-lift-high",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  legLift: 8,",
+    "replace": "  legLift: 14,",
+    "note": "копыто на махе поднимается на 14 px вместо 8: шов и копыто растянуты (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-tail-joy-wide",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  tailSwing: 16,",
+    "replace": "  tailSwing: 22,",
+    "note": "хвост радости виляет на ±22° вместо ±16°: хвост и круп хуже замера (И13-2, заход 3)"
+  },
+  {
+    "id": "parts-plane-set-frame",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  plane.ignoreDirtyCache = true;\n",
+    "replace": "  plane.ignoreDirtyCache = true;\n  plane.setFrame(plane.frame.name);\n",
+    "note": "на сетке зовут setFrame: UV сброшены на ровную сетку, сдвинутые вершины едут отдельно (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-samples-half",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const SAMPLES = 24;",
+    "replace": "const SAMPLES = 12;",
+    "note": "кривая шеи по двенадцати точкам вместо двадцати четырёх: изгиб грубее, грани шеи хуже (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-walk-swing-slight",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  legSwing: 16,",
+    "replace": "  legSwing: 18,",
+    "note": "размах лап на шаге 18° вместо 16°: ребро у брюха на шаге выше замера 7.13, но ниже общего потолка 13 (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-joy-front-slight",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  front: -28,\n  back: 28,",
+    "replace": "  front: -30,\n  back: 30,",
+    "note": "лапы радости разведены на 30° вместо 28°: ребро у брюха и шов чуть хуже замера (И13-2, заход 3)"
+  },
+  {
+    "id": "pose-dip-front-slight",
+    "file": "src/art/dinoPoses.ts",
+    "find": "  front: -9,",
+    "replace": "  front: -12,",
+    "note": "передние лапы в нырке 12° вместо 9°: ребро у брюха в нырке выше замера 4.02 (И13-2, заход 3)"
+  },
+  {
+    "id": "warp-neck-calm-key-renamed",
+    "file": "tests/dinoWarpCeilings.ts",
+    "find": "export const NECK_CALM: Record<string, Record<string, Limits>> = {\n  шаг: {",
+    "replace": "export const NECK_CALM: Record<string, Record<string, Limits>> = {\n  шагом: {",
+    "note": "потолки шеи на шаге пропали из таблицы под другим именем, а проверка шла по номеру позы и молча проходила пустой: шея на шаге могла сломаться незаметно (И13-2, заход 4)"
+  },
+  {
+    "id": "warp-kit-step-renamed",
+    "file": "tests/dinoWarpKit.ts",
+    "find": "    name: 'шаг',\n",
+    "replace": "    name: 'ходьба',\n",
+    "note": "поза шага переименована в наборе: проверки, что ищут её по имени, не должны молча пропустить шаг (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-override-removed",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  override setSizeToFrame(_resetUV?: boolean): this {\n    return super.setSizeToFrame(false);\n  }\n",
+    "replace": "",
+    "note": "у сетки диплодока убрана защита UV: любая смена кадра или текстуры стирает сдвиги вершин в просвет, и тринадцать кусков рисунка разъезжаются до 16 px (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-reset-uv",
+    "file": "src/entities/dinoParts.ts",
+    "find": "    return super.setSizeToFrame(false);",
+    "replace": "    return super.setSizeToFrame(true);",
+    "note": "защита UV просит у Plane сброс: смена кадра стирает сдвиги вершин в просвет (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-grid-open",
+    "file": "src/entities/dinoParts.ts",
+    "find": "    this.gridBuilt = true;\n",
+    "replace": "    this.gridBuilt = false;\n",
+    "note": "сетку диплодока можно построить заново после сборки: вершины без сдвигов в просвет, куски рисунка рвутся (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-checkerboard-open",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  override createCheckerboard(): void {}",
+    "replace": "  override createCheckerboard(): void {\n    super.createCheckerboard();\n  }",
+    "note": "шахматная текстура подменяет рисунок диплодока: текстура и кадр меняются на 16×16 клеток (UV она не сбрасывает, их держит setSizeToFrame) (И13-2, заход 5)"
+  },
+  {
+    "id": "parts-plane-uvscroll-open",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  override uvScroll(_x: number, _y: number): this {\n    return this;",
+    "replace": "  override uvScroll(_x: number, _y: number): this {\n    return super.uvScroll(_x, _y);",
+    "note": "сдвиг UV по всем граням унёс бы рисунок диплодока с его места (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-uvscale-open",
+    "file": "src/entities/dinoParts.ts",
+    "find": "  override uvScale(_x: number, _y: number): this {\n    return this;",
+    "replace": "  override uvScale(_x: number, _y: number): this {\n    return super.uvScale(_x, _y);",
+    "note": "масштаб UV по всем граням растянул бы рисунок диплодока (И13-2, заход 4)"
+  },
+  {
+    "id": "warp-forbidden-if-condition-counts",
+    "file": "tests/dinoWarp.test.ts",
+    "find": ".map((statement) => statement.replace(/^\\s*(else\\s+)?(if|while)\\s*\\([^)]*\\)\\s*/, ''))",
+    "replace": ".map((statement) => statement)",
+    "note": "поиск вызовов setFrame на сетке снова путает условие про plane с вызовом на plane: сборка диплодока красная без причины (И13-2, заход 4)"
+  },
+  {
+    "id": "warp-neck-peak-dig-shoulder",
+    "file": "src/art/dinoWarp.ts",
+    "find": "      baseX + nx * bound.side + (tailX / tailLen) * bound.beyond,\n      baseY + ny * bound.side + (tailY / tailLen) * bound.beyond,",
+    "replace": "      baseX + nx * bound.side * (headY > -60 && bound.t < 0.05 && Math.abs(bound.side) > 45 ? 1.2 : 1) + (tailX / tailLen) * bound.beyond,\n      baseY + ny * bound.side * (headY > -60 && bound.t < 0.05 && Math.abs(bound.side) > 45 ? 1.2 : 1) + (tailY / tailLen) * bound.beyond,",
+    "note": "у плеча в нырках и копании самая растянутая грань тянется ещё на пятую часть, а число плохих граней то же: счёт граней молчит, потолок растяжения краснеет (И13-2, заход 4)"
+  },
+  {
+    "id": "parts-plane-size-to-frame-noop",
+    "file": "src/entities/dinoParts.ts",
+    "find": "    return super.setSizeToFrame(false);",
+    "replace": "    return this;",
+    "note": "сетка диплодока не пересчитывает перспективу при смене кадра: проекция остаётся от Mesh (масштаб x 1.358 вместо 1.056), диплодок растянут (И13-2, заход 5)"
+  },
+  {
+    "id": "warp-neck-jaw-shear",
+    "file": "src/art/dinoWarp.ts",
+    "find": "      baseX + nx * bound.side + (tailX / tailLen) * bound.beyond,\n      baseY + ny * bound.side + (tailY / tailLen) * bound.beyond,",
+    "replace": "      baseX + nx * bound.side + (tailX / tailLen) * (bound.beyond + (headY > -60 && bound.t > 0.9 && bound.side > 0 && bound.side < 25 ? bound.side * -0.2 : 0)),\n      baseY + ny * bound.side + (tailY / tailLen) * (bound.beyond + (headY > -60 && bound.t > 0.9 && bound.side > 0 && bound.side < 25 ? bound.side * -0.2 : 0)),",
+    "note": "под челюстью в нырке грани сдвигает вдоль шеи пропорционально отступу вбок: площадь и растяжение прежние, а сжатие s2 падает до 0.92 — ловит только пол s2 в NECK_PEAKS (И13-2, заход 5)"
+  },
+  {
+    "id": "dig-paw-wiring",
+    "file": "src/entities/dinoRig.ts",
+    "find": "this.legAngles[2] = this.frontLegs[1]?.angle ?? 0;",
+    "replace": "this.legAngles[2] = this.frontLegs[0]?.angle ?? 0;",
+    "note": "взмах лапы при копании снова не гнёт сетку: риг читает дальнюю переднюю лапу, а твин копания держит ближнюю"
+  },
+  {
+    "id": "warp-leg-gap-fade-34",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LEG_GAP_FADE = 60;",
+    "replace": "const LEG_GAP_FADE = 34;",
+    "note": "вершины у просвета между лапами набирают поворот за те же 34 px, что и лапа: ребро у брюха между лапами 1 и 2 раскрывается на 12 px в радости, а не на 7 (И13-3, шов у брюха)"
+  },
+  {
+    "id": "warp-leg-gap-rule-off",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const inGap = Math.abs(px - leg.x) / leg.width > 0.5;",
+    "replace": "const inGap = false;",
+    "note": "правила «за полушириной лапы — медленнее» нет: то же, что LEG_GAP_FADE = 34, но прямо в условии (И13-3, шов у брюха)"
+  },
+  {
+    "id": "warp-leg-gap-fade-90",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const LEG_GAP_FADE = 60;",
+    "replace": "const LEG_GAP_FADE = 90;",
+    "note": "вершины у просвета набирают поворот за 90 px: в радости 143 плохих грани у шва, лапы растянуты до 1.7 (И13-3, шов у брюха)"
+  },
+  {
+    "id": "warp-leg-mid-fade-slow",
+    "file": "src/art/dinoWarp.ts",
+    "find": "below / (inGap ? LEG_GAP_FADE : LEG_FADE)",
+    "replace": "below / (inGap ? LEG_GAP_FADE : 70)",
+    "note": "середина лапы набирает поворот за 70 px вместо 34: грани лапы вне строки у просвета растянуты, ловит строгий сторож зоны «лапы» и 1.3 в dinoLayout (И13-3, строгая часть лапы)"
+  },
+  {
+    "id": "warp-leg-hoof-pull",
+    "file": "src/art/dinoWarp.ts",
+    "find": "weight: Math.min(1, below / (inGap ? LEG_GAP_FADE : LEG_FADE)),",
+    "replace": "weight: Math.min(1, below / (inGap ? LEG_GAP_FADE : LEG_FADE)) * (py > 500 ? 0.8 : 1),",
+    "note": "у копыта (ниже 500 px) поворот на пятую часть слабее: грань между строкой выше и копытом растянута, а в строку у просвета она не входит — ловит строгий сторож «лапы» (И13-3, строгая часть лапы)"
+  },
+  {
+    "id": "neck-root-off",
+    "file": "src/art/dinoWarp.ts",
+    "find": "const root = rootAngle(turn, tangent, rootGain);",
+    "replace": "const root = { phi: 0, start: tangent };\n  void rootAngle(turn, tangent, rootGain);",
+    "note": "шея на толчке и нырках снова сгибается пеньком: у плеча белый срез и зеркальная краска, как до поворота основания"
+  },
+  {
+    "id": "neck-root-q0",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "const over = Math.abs(turn) - ROOT_START;",
+    "replace": "const over = Math.abs(tangent) - ROOT_START;",
+    "note": "основание шеи ведёт касательная, а не хорда: угол прыгает по кадрам, плечо дёргается на нырке"
+  },
+  {
+    "id": "neck-root-c2-from-shoulder",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "    c2x: head.x + (2 / 3) * (mid.x - head.x) * ROOT_END_ARM,\n    c2y: head.y + (2 / 3) * (mid.y - head.y) * ROOT_END_ARM,",
+    "replace": "    c2x: shoulder.x + (2 / 3) * (mid.x - shoulder.x),\n    c2y: shoulder.y + (2 / 3) * (mid.y - shoulder.y),",
+    "note": "вторая ручка кривой от плеча, а не от головы: голова на нырке заворачивается вверх ногами, глаз уезжает с неё"
+  },
+  {
+    "id": "neck-root-no-reset",
+    "file": "src/art/dinoWarp.ts",
+    "find": "if (rootPhi === 0) setUnit(vertex, bound.unitX, bound.unitY);",
+    "replace": "if (rootPhi === 0) void setUnit;",
+    "note": "после нырка плечо и холка остаются повёрнутыми: диплодок стоит с горбом, пока не пойдёт или не нырнёт снова"
+  },
+  {
+    "id": "dig-root-gain-ignored",
+    "file": "src/entities/dinoRig.ts",
+    "find": "      this.neckRootGain,\n    );",
+    "replace": "      1,\n    );",
+    "note": "на копании шея складывается в ноль у плеча: петля с дырой, зелёное просвечивает внутри"
+  },
+  {
+    "id": "dig-root-gain-not-set",
+    "file": "src/entities/Diplodocus.ts",
+    "find": "this.neckRootGain = 0;",
+    "replace": "this.neckRootGain = 1;",
+    "note": "копание не выключает поворот основания: на пике взмаха шея складывается петлёй"
+  },
+  {
+    "id": "dig-root-gain-kept",
+    "file": "src/entities/Diplodocus.ts",
+    "find": "        this.rig.setPosition(0, 0);\n        this.neckRootGain = 1;\n",
+    "replace": "        this.rig.setPosition(0, 0);\n",
+    "note": "после копания поворот основания остаётся выключенным: следующий нырок или толчок снова даёт срез у плеча"
+  },
+  {
+    "id": "neck-root-far-narrow",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_FAR = 220;",
+    "replace": "export const ROOT_FAR = 120;",
+    "note": "тело за плечом поворачивается на узком пятне: рядом с ним грани тела выворачиваются, на спине видна складка"
+  },
+  {
+    "id": "neck-root-near-zero",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_NEAR = 30;",
+    "replace": "export const ROOT_NEAR = 0;",
+    "note": "тело у самого плеча не поворачивается целиком, а сразу ослабевает: у шеи остаётся ступенька"
+  },
+  {
+    "id": "neck-root-start-zero",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_START = (30 * Math.PI) / 180;",
+    "replace": "export const ROOT_START = 0;",
+    "note": "основание шеи гнётся и на шаге, и в радости: холка покачивается вместе с головой"
+  },
+  {
+    "id": "neck-root-max-170",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_MAX = (120 * Math.PI) / 180;",
+    "replace": "export const ROOT_MAX = (170 * Math.PI) / 180;",
+    "note": "основание шеи поворачивается без потолка: плечо заваливается назад"
+  },
+  {
+    "id": "neck-root-end-arm-1",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_END_ARM = 0.7;",
+    "replace": "export const ROOT_END_ARM = 1;",
+    "note": "шея у головы изгибается круче: под челюстью грани растянуты сильнее"
+  },
+  {
+    "id": "neck-root-arm-short",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "export const ROOT_ARM = 0.65;",
+    "replace": "export const ROOT_ARM = 0.2;",
+    "note": "шея у плеча выходит из холки крутым углом: на изгибе видна ступенька"
+  },
+  {
+    "id": "neck-root-weight-no-fade",
+    "file": "src/art/dinoNeckRoot.ts",
+    "find": "const weight = 1 - smooth((distance - ROOT_NEAR) / (ROOT_FAR - ROOT_NEAR));",
+    "replace": "const weight = 1;",
+    "note": "тело у плеча поворачивается целиком до края зоны: на краю обрыв, рисунок рвётся по спине"
+  },
+  {
+    "id": "shots-hash-ignored",
+    "file": "tools/shots.mjs",
+    "find": "return candidates.filter((path) => looked[path] !== now[path]);",
+    "replace": "return candidates;",
+    "note": "хук before-stop снова судит по одному времени: прогон мутантов и откат тем же текстом требуют обход экранов зря"
+  },
+  {
+    "id": "shots-stamp-no-files",
+    "file": "vite.config.ts",
+    "find": "...JSON.parse(body), files: fingerprints(ROOT) };",
+    "replace": "...JSON.parse(body) };",
+    "note": "обход не оставляет отпечатков, и сравнение содержимого в хуке молча выключено"
+  },
+  {
+    "id": "deal-ignores-variant",
+    "file": "src/data/questDeck.ts",
+    "find": "  const start = (at * stride) % deck.length;",
+    "replace": "  const start = 0;",
+    "note": "раздача не слышит вариант: все узлы берут начало колоды — слова и вопросы одни и те же"
+  },
+  {
+    "id": "deal-slices-overlap",
+    "file": "src/data/questDeck.ts",
+    "find": "  const start = (at * stride) % deck.length;",
+    "replace": "  const start = (at * (stride - 1)) % deck.length;",
+    "note": "срезы колоды налезают друг на друга на одну карту — соседние узлы делят слово или вопрос"
+  },
+  {
+    "id": "deal-turn-lost",
+    "file": "src/data/questDeck.ts",
+    "find": "  const turn = lap % Math.max(1, picked.length);",
+    "replace": "  const turn = 0;",
+    "note": "далёкие узлы с той же тройкой слов выглядят одинаково: порядок внутри среза не сдвигается"
+  },
+  {
+    "id": "word-deal-variant-ignored",
+    "file": "src/data/questWords.ts",
+    "find": "5300 + index * 6421, variant, {",
+    "replace": "5300 + index * 6421, 0, {",
+    "note": "«Собери слово» не передаёт варианта в раздачу — все узлы ступени получают одни и те же слова"
+  },
+  {
+    "id": "quiz-deal-variant-ignored",
+    "file": "src/data/questQuiz.ts",
+    "find": "9100 + index * 7919, variant, {",
+    "replace": "9100 + index * 7919, 0, {",
+    "note": "викторина не передаёт варианта в раздачу — все узлы ступени получают одни и те же вопросы"
+  },
+  {
+    "id": "word-row0-reaches-third-round",
+    "file": "src/data/questWords.ts",
+    "find": "const WORD_FROM_ROW_1 = 2;",
+    "replace": "const WORD_FROM_ROW_1 = 3;",
+    "note": "короткие слова остаются и на третьем круге: пятибуквенные снова с четвёртого, ряд из четырёх слов делят три узла"
+  },
+  {
+    "id": "deal-key-not-skipped",
+    "file": "src/data/questDeck.ts",
+    "find": "      if (used.has(key(item))) continue;",
+    "replace": "      if (false) continue;",
+    "note": "два вопроса с одним ответом попадают в один узел: подряд «что пинают» и «что должно попасть в ворота» с одним мячом"
+  },
+  {
+    "id": "memory-centre-ignores-variant",
+    "file": "src/data/questDeals.ts",
+    "find": "from = memoryCentre(variant, n)",
+    "replace": "from = memoryCentre(0, n)",
+    "note": "окно значков «Запомни пары» не слышит вариант — все узлы берут одни и те же картинки"
+  },
+  {
+    "id": "memory-centre-slots-unswapped",
+    "file": "src/data/questDeals.ts",
+    "find": "const slot = v === 1 ? 2 : v === 2 ? 1 : v;",
+    "replace": "const slot = v;",
+    "note": "два узла одного круга стоят на соседних шагах кольца и их окна по 12 значков пересекаются"
+  },
+  {
+    "id": "english-max-word-five",
+    "file": "src/data/english.ts",
+    "find": "export const MAX_WORD_LENGTH = 7;",
+    "replace": "export const MAX_WORD_LENGTH = 5;",
+    "note": "предел слова снова пять: sister и brother не проходят"
+  },
+  {
+    "id": "english-family-badge-lost",
+    "file": "src/data/english.ts",
+    "find": "if (set.id === 'family') return { kind: 'picture', key: TEX.EN_SET.family };",
+    "replace": "",
+    "note": "на кружке семьи вместо группового портрета портрет мамы"
+  },
+  {
+    "id": "english-picker-off-centre",
+    "file": "src/art/englishLayout.ts",
+    "find": "const left = GAME_WIDTH / 2 - ((count - 1) * SET_PICKER.step) / 2;",
+    "replace": "const left = GAME_WIDTH / 2 - (count * SET_PICKER.step) / 2;",
+    "note": "шесть кружков съехали влево от середины"
+  },
+  {
+    "id": "english-anagram-tile-small",
+    "file": "src/art/englishLayout.ts",
+    "find": "  tile: 104,",
+    "replace": "  tile: 60,",
+    "note": "плитки анаграммы мельче порога"
+  },
+  {
+    "id": "english-catch-prompt-big",
+    "file": "src/art/englishLayout.ts",
+    "find": "  promptSize: 50,",
+    "replace": "  promptSize: 58,",
+    "note": "портрет в Catch letters наезжает на клетки и точки"
+  },
+  {
+    "id": "english-list-word-column-back",
+    "file": "src/art/englishLayout.ts",
+    "find": "  wordLeft: 780,",
+    "replace": "  wordLeft: 820,",
+    "note": "brother упирается в перевод «Мы — друзья»"
+  },
+  {
+    "id": "quest-stands-word-lost",
+    "file": "src/data/questWords.ts",
+    "find": "    { word: 'ТРИБУНА', icon: TEX.WORD_PIC.stands },\n",
+    "replace": "",
+    "note": "слово ТРИБУНА пропало: ряд 2 снова с повтором слов"
+  },
+  {
+    "id": "english-set-order-swapped",
+    "file": "src/data/english.ts",
+    "find": "    id: 'food',",
+    "replace": "    id: 'meals',",
+    "note": "id набора переименован: прогресс потерян"
+  },
+  {
+    "id": "migration-skips-v1",
+    "file": "src/systems/saveMigrations.ts",
+    "find": "if (items.length > 0) kv.set(V2_COLLECTION, JSON.stringify(items));",
+    "replace": "if (items.length < 0) kv.set(V2_COLLECTION, JSON.stringify(items));",
+    "note": "Музей первой сборки не переезжает в новый ключ: после обновления у ребёнка пустой альбом находок"
+  },
+  {
+    "id": "migration-resurrects-erased",
+    "file": "src/systems/saveMigrations.ts",
+    "find": "if (kv.has(V2_COLLECTION)) return;",
+    "replace": "if (kv.has(V2_COLLECTION) && kv.get(V2_COLLECTION) !== '[]') return;",
+    "note": "Музей, который родитель стёр в 1.1, возвращается после обновления: «Стереть всё» оказалось не всё"
+  },
+  {
+    "id": "future-format-writable",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (minWriter <= SAVE_FORMAT) return 'newer';\n  return 'future';",
+    "replace": "  if (minWriter <= SAVE_FORMAT) return 'newer';\n  return 'newer';",
+    "note": "Старая игра пишет в хранилище, которое новая версия запретила трогать: прогресс ребёнка портится после отката выкладки"
+  },
+  {
+    "id": "min-writer-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "const minWriter = writer === null || writer > format ? format : writer;",
+    "replace": "const minWriter = format;",
+    "note": "Хранилище новее игры, но писать в него можно, а игра молчит: ребёнок играет, и ничего не сохраняется"
+  },
+  {
+    "id": "write-skips-format-recheck",
+    "file": "src/systems/saveStore.ts",
+    "find": "export function writeKey<T>(spec: KeySpec<T>, value: T): void {\n  if (!mayWrite()) {",
+    "replace": "export function writeKey<T>(spec: KeySpec<T>, value: T): void {\n  if (readOnly()) {",
+    "note": "Другая вкладка с новой игрой подняла формат, а эта пишет по старым правилам и портит чужое"
+  },
+  {
+    "id": "reload-ignores-restore",
+    "file": "src/systems/saveStore.ts",
+    "find": "    key === SERVICE_KEYS.minWriter ||\n    key === SERVICE_KEYS.restore\n",
+    "replace": "    key === SERVICE_KEYS.minWriter\n",
+    "note": "Родитель стёр или заменил прогресс в одной вкладке, а вторая показывает старое и потом пишет поверх"
+  },
+  {
+    "id": "reload-ignores-clear",
+    "file": "src/systems/saveStore.ts",
+    "find": "    key === null ||\n",
+    "replace": "",
+    "note": "Хранилище очистили целиком в соседней вкладке, а эта продолжает играть с устаревшим прогрессом"
+  },
+  {
+    "id": "reload-ignores-format",
+    "file": "src/systems/saveStore.ts",
+    "find": "    key === SERVICE_KEYS.format ||\n",
+    "replace": "",
+    "note": "Соседняя вкладка подняла формат, а эта не перезагружается и продолжает писать по старым правилам"
+  },
+  {
+    "id": "reload-on-progress",
+    "file": "src/systems/saveStore.ts",
+    "find": "    key === SERVICE_KEYS.restore\n  );",
+    "replace": "    key === SERVICE_KEYS.restore ||\n    key.startsWith(SAVE_PREFIX)\n  );",
+    "note": "Вторая вкладка перезагружается на каждый клад, найденный в первой, и ребёнок теряет экран"
+  },
+  {
+    "id": "future-quarantine-writes",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (!mayWrite()) {\n    // В `future` не пишем даже копию",
+    "replace": "  if (false) {\n    // В `future` не пишем даже копию",
+    "note": "В хранилище новее игры игра пишет копии битого и портит то, что обещала не трогать"
+  },
+  {
+    "id": "future-remove-key",
+    "file": "src/systems/saveStore.ts",
+    "find": "export function removeKey(key: string): void {\n  if (readOnly()) return;",
+    "replace": "export function removeKey(key: string): void {",
+    "note": "«Стереть всё» в старой игре удаляет ключи в хранилище новее неё"
+  },
+  {
+    "id": "open-skips-early-read",
+    "file": "src/systems/saveStore.ts",
+    "find": "  for (const spec of PROGRESS_KEYS) readKey(spec);\n  return rolled ?? status;",
+    "replace": "  return rolled ?? status;",
+    "note": "Битый ключ откладывается только когда ребёнок дойдёт до экрана, а слепая запись раньше затрёт его"
+  },
+  {
+    "id": "open-format-broken-forgotten",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (formats.rawFormat !== null && parseCount(formats.rawFormat) === null)\n    quarantine(SERVICE_KEYS.format, formats.rawFormat);\n",
+    "replace": "\n",
+    "note": "Битый номер формата затирается миграцией без следа, взрослому нечего прислать"
+  },
+  {
+    "id": "migrate-format-before-data",
+    "file": "src/systems/saveStore.ts",
+    "find": "    put(SERVICE_KEYS.minWriter, JSON.stringify(SAVE_MIN_WRITER)) &&\n    put(SERVICE_KEYS.format, JSON.stringify(SAVE_FORMAT))",
+    "replace": "    put(SERVICE_KEYS.format, JSON.stringify(SAVE_FORMAT)) &&\n    put(SERVICE_KEYS.minWriter, JSON.stringify(SAVE_MIN_WRITER))",
+    "note": "Обрыв посреди миграции оставляет формат 2 без второго номера: следующий запуск уже не доделает перенос"
+  },
+  {
+    "id": "migrate-numbers-before-progress",
+    "file": "src/systems/saveStore.ts",
+    "find": "  for (const key of order) {\n    if (!put(key, kv.get(key) ?? '')) return false;\n  }\n",
+    "replace": "",
+    "note": "Номер формата ставится, а перенесённый музей нет: после обрыва музей первой сборки пропадает насовсем"
+  },
+  {
+    "id": "marker-future-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (marker === 'future') {\n    mode = 'future';\n    return 'future';\n  }",
+    "replace": "  if (marker === 'future') {\n  }",
+    "note": "Игра трогает хранилище с меткой замены из будущего формата и портит чужую запись на середине"
+  },
+  {
+    "id": "marker-broken-kept",
+    "file": "src/systems/saveStore.ts",
+    "find": "    quarantine(SERVICE_KEYS.restore, raw);\n    removeKey(SERVICE_KEYS.restore);",
+    "replace": "    quarantine(SERVICE_KEYS.restore, raw);",
+    "note": "Нечитаемая метка замены остаётся навсегда и каждый запуск считает замену незавершённой"
+  },
+  {
+    "id": "unavailable-undetected",
+    "file": "src/systems/saveStore.ts",
+    "find": "    mode = 'unavailable';\n    return 'unavailable';\n  }\n  let formats",
+    "replace": "  }\n  let formats",
+    "note": "Без доступа к хранилищу игра считает себя обычной и пытается писать: ошибка на экране ребёнка"
+  },
+  {
+    "id": "fresh-writes-nothing",
+    "file": "src/systems/saveStore.ts",
+    "find": "if (migrateStore(formats.format)) status = fresh ? 'fresh' : 'migrated';",
+    "replace": "if (migrateStore(formats.format)) status = 'ok';",
+    "note": "Свежая игра не ставит номер формата: следующая версия считает хранилище старым и гоняет миграции зря"
+  },
+  {
+    "id": "decode-drops-unknown-sticker",
+    "file": "src/systems/saveKeys.ts",
+    "find": "  key: SAVE_PREFIX + 'v3:quest-stickers',\n  fallback: () => [],\n  decode: stringArray,",
+    "replace": "  key: SAVE_PREFIX + 'v3:quest-stickers',\n  fallback: () => [],\n  decode: (data) => {\n    const part = stringArray(data);\n    const value = part.value.filter((id) => id !== 'sticker-ball-boot');\n    return { value, lossless: part.lossless && value.length === part.value.length };\n  },",
+    "note": "Наклейка из старой сборки, которой нет в нынешнем списке, пропадает из альбома ребёнка и уходит в карантин как битая"
+  },
+  {
+    "id": "decode-drops-unknown-sticker-silently",
+    "file": "src/systems/saveKeys.ts",
+    "find": "  key: SAVE_PREFIX + 'v3:quest-stickers',\n  fallback: () => [],\n  decode: stringArray,",
+    "replace": "  key: SAVE_PREFIX + 'v3:quest-stickers',\n  fallback: () => [],\n  decode: (data) => {\n    const part = stringArray(data);\n    return { value: part.value.filter((id) => id !== 'sticker-ball-boot'), lossless: part.lossless };\n  },",
+    "note": "Старая наклейка тихо исчезает из альбома: ни копии, ни следа"
+  },
+  {
+    "id": "decode-strings-all-or-nothing",
+    "file": "src/systems/saveKeys.ts",
+    "find": "  const value = data.filter((v): v is string => typeof v === 'string');\n  return { value, lossless: value.length === data.length };\n}\n\nfunction numberArray",
+    "replace": "  const value = data.every((v) => typeof v === 'string') ? (data as string[]) : [];\n  return { value, lossless: value.length === data.length };\n}\n\nfunction numberArray",
+    "note": "Одна лишняя цифра среди наклеек или узлов обнуляет весь список: ребёнок теряет все наклейки"
+  },
+  {
+    "id": "decode-skill-all-or-nothing",
+    "file": "src/systems/saveKeys.ts",
+    "find": "      value: Object.fromEntries(steps.map(([kind, step]) => [kind, clampSkill(step)])),",
+    "replace": "      value: steps.length === Object.keys(data).length ? Object.fromEntries(steps.map(([kind, step]) => [kind, clampSkill(step)])) : {},",
+    "note": "Одна испорченная ступень сбрасывает ступени всех задачек: игра снова начинает с лёгких"
+  },
+  {
+    "id": "file-accepts-future",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (format > SAVE_FORMAT) return refuse('future');",
+    "replace": "if (format > SAVE_FORMAT + 9) return refuse('future');",
+    "note": "файл из будущего формата принимается"
+  },
+  {
+    "id": "file-skips-value-check",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (result === null || !result.lossless) return refuse('broken-value');",
+    "replace": "if (result === null) return refuse('broken-value');",
+    "note": "значение с потерей проходит проверку"
+  },
+  {
+    "id": "file-unparsable-value-accepted",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (result === null || !result.lossless) return refuse('broken-value');",
+    "replace": "if (result !== null && !result.lossless) return refuse('broken-value');",
+    "note": "значение, которое не разобрать, проходит"
+  },
+  {
+    "id": "export-raw-lossy",
+    "file": "src/systems/saveFile.ts",
+    "find": "keys[spec.key] = JSON.stringify(readKey(spec));",
+    "replace": "keys[spec.key] = present[spec.key] ?? '';",
+    "note": "в файл идёт сырая строка с потерей (001-31)"
+  },
+  {
+    "id": "export-in-readonly",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (storeMode() !== 'normal') return 'refused';",
+    "replace": "if (storeMode() === 'unavailable' || storeMode() === 'newer') return 'refused';",
+    "note": "выгрузка в future разрешена (001-35)"
+  },
+  {
+    "id": "export-in-newer",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (storeMode() !== 'normal') return 'refused';",
+    "replace": "if (storeMode() === 'unavailable' || storeMode() === 'future') return 'refused';",
+    "note": "выгрузка в newer разрешена (001-45)"
+  },
+  {
+    "id": "export-in-unavailable",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (storeMode() !== 'normal') return 'refused';",
+    "replace": "if (storeMode() === 'newer' || storeMode() === 'future') return 'refused';",
+    "note": "выгрузка без хранилища даёт пустой файл"
+  },
+  {
+    "id": "file-rejects-extra-fields",
+    "file": "src/systems/saveFile.ts",
+    "find": "  if (!isRecord(keys)) return refuse('foreign');",
+    "replace": "  if (!isRecord(keys) || Object.keys(data).length > 5) return refuse('foreign');",
+    "note": "лишние поля верхнего уровня (reason, v1, broken) — отказ"
+  },
+  {
+    "id": "file-size-ignored",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (sizeBytes > CONFIG.save.fileMaxBytes) return refuse('too-big');",
+    "replace": "if (sizeBytes > CONFIG.save.fileMaxBytes * 1e6) return refuse('too-big');",
+    "note": "предел размера не работает"
+  },
+  {
+    "id": "file-size-boundary",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (sizeBytes > CONFIG.save.fileMaxBytes) return refuse('too-big');",
+    "replace": "if (sizeBytes >= CONFIG.save.fileMaxBytes) return refuse('too-big');",
+    "note": "файл ровно в предел отвергается"
+  },
+  {
+    "id": "file-size-after-parse",
+    "file": "src/systems/saveFile.ts",
+    "find": "  if (sizeBytes > CONFIG.save.fileMaxBytes) return refuse('too-big');\n  let data: unknown;\n  try {\n    data = JSON.parse(text);\n  } catch {\n    return refuse('not-json');\n  }",
+    "replace": "  let data: unknown;\n  try {\n    data = JSON.parse(text);\n  } catch {\n    return refuse('not-json');\n  }\n  if (sizeBytes > CONFIG.save.fileMaxBytes) return refuse('too-big');",
+    "note": "предел проверяется после чтения: огромный обрезок даёт not-json"
+  },
+  {
+    "id": "file-v1-keys-lost-in-format-1",
+    "file": "src/systems/saveFile.ts",
+    "find": "return new Set(format < 2 ? [...keys, ...LEGACY_KEYS] : keys);",
+    "replace": "return new Set(keys);",
+    "note": "файл формата 1 с v1:* отвергается"
+  },
+  {
+    "id": "file-v1-keys-in-format-2",
+    "file": "src/systems/saveFile.ts",
+    "find": "return new Set(format < 2 ? [...keys, ...LEGACY_KEYS] : keys);",
+    "replace": "return new Set([...keys, ...LEGACY_KEYS]);",
+    "note": "v1:* допустимы в файле формата 2"
+  },
+  {
+    "id": "file-migration-skipped",
+    "file": "src/systems/saveFile.ts",
+    "find": "  migrateKV(kv, format);\n",
+    "replace": "",
+    "note": "музей первой сборки в файле формата 1 не переносится"
+  },
+  {
+    "id": "file-foreign-key-accepted",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (!allowed.has(key) || typeof value !== 'string') return refuse('foreign');",
+    "replace": "if (typeof value !== 'string') return refuse('foreign');",
+    "note": "чужой ключ в keys не отвергается"
+  },
+  {
+    "id": "file-nonstring-value-accepted",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (!allowed.has(key) || typeof value !== 'string') return refuse('foreign');",
+    "replace": "if (!allowed.has(key)) return refuse('foreign');",
+    "note": "значение не строкой не отвергается"
+  },
+  {
+    "id": "file-kind-ignored",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (!isRecord(data) || data['kind'] !== PROGRESS_KIND) return refuse('foreign');",
+    "replace": "if (!isRecord(data)) return refuse('foreign');",
+    "note": "отчёт о сбое принимается как прогресс"
+  },
+  {
+    "id": "file-format-fraction-ok",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (typeof format !== 'number' || !Number.isInteger(format) || format < 1) return refuse('foreign');",
+    "replace": "if (typeof format !== 'number' || format < 1) return refuse('foreign');",
+    "note": "формат 1.5 проходит"
+  },
+  {
+    "id": "file-format-zero-ok",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (typeof format !== 'number' || !Number.isInteger(format) || format < 1) return refuse('foreign');",
+    "replace": "if (typeof format !== 'number' || !Number.isInteger(format) || format < 0) return refuse('foreign');",
+    "note": "формат 0 проходит"
+  },
+  {
+    "id": "file-keys-array-ok",
+    "file": "src/systems/saveFile.ts",
+    "find": "  if (!isRecord(keys)) return refuse('foreign');",
+    "replace": "  if (keys === null || typeof keys !== 'object') return refuse('foreign');",
+    "note": "keys-массив проходит"
+  },
+  {
+    "id": "file-summary-unknown-nodes",
+    "file": "src/systems/saveFile.ts",
+    "find": "quest: new Set(solved.filter((id) => KNOWN_NODES.has(id))).size,",
+    "replace": "quest: new Set(solved).size,",
+    "note": "в сводке узлы, которых нет в сборке"
+  },
+  {
+    "id": "file-summary-duplicates",
+    "file": "src/systems/saveFile.ts",
+    "find": "quest: new Set(solved.filter((id) => KNOWN_NODES.has(id))).size,",
+    "replace": "quest: solved.filter((id) => KNOWN_NODES.has(id)).length,",
+    "note": "повторы в сводке считаются дважды"
+  },
+  {
+    "id": "file-summary-quarantines",
+    "file": "src/systems/saveFile.ts",
+    "find": "    peekKey(SPECS.completed),",
+    "replace": "    readKey(SPECS.completed),",
+    "note": "сводка «сейчас» откладывает битое и пишет в хранилище"
+  },
+  {
+    "id": "file-summary-current-from-file",
+    "file": "src/systems/saveFile.ts",
+    "find": "  return { ok: true, format, keys: target, file, current: summarizeStore() };",
+    "replace": "  return { ok: true, format, keys: target, file, current: file };",
+    "note": "«сейчас» берётся из файла"
+  },
+  {
+    "id": "file-backup-always",
+    "file": "src/systems/saveFile.ts",
+    "find": "if ('reason' in data && typeof savedAt === 'string') file.backupOf = savedAt;",
+    "replace": "if (typeof savedAt === 'string') file.backupOf = savedAt;",
+    "note": "обычный файл выдаёт себя за резервную копию"
+  },
+  {
+    "id": "file-backup-never",
+    "file": "src/systems/saveFile.ts",
+    "find": "if ('reason' in data && typeof savedAt === 'string') file.backupOf = savedAt;",
+    "replace": "",
+    "note": "резервная копия без «от такого-то»"
+  },
+  {
+    "id": "file-name-utc",
+    "file": "src/systems/saveFile.ts",
+    "find": "two(now.getDate())",
+    "replace": "two(now.getUTCDate())",
+    "note": "число по UTC, а не местное"
+  },
+  {
+    "id": "file-name-month-zero-based",
+    "file": "src/systems/saveFile.ts",
+    "find": "two(now.getMonth() + 1)",
+    "replace": "two(now.getMonth())",
+    "note": "месяц с нуля"
+  },
+  {
+    "id": "file-name-no-pad",
+    "file": "src/systems/saveFile.ts",
+    "find": "String(n).padStart(2, '0')",
+    "replace": "String(n).padStart(1, '0')",
+    "note": "без нуля у числа"
+  },
+  {
+    "id": "export-game-lost",
+    "file": "src/systems/saveFile.ts",
+    "find": "format: SAVE_FORMAT, game, savedAt",
+    "replace": "format: SAVE_FORMAT, game: '', savedAt",
+    "note": "версия игры не попадает в файл"
+  },
+  {
+    "id": "export-absent-keys-filled",
+    "file": "src/systems/saveFile.ts",
+    "find": "if (spec.key in present) keys[spec.key]",
+    "replace": "keys[spec.key]",
+    "note": "в файл идут и отсутствующие ключи"
+  },
+  {
+    "id": "export-format-one",
+    "file": "src/systems/saveFile.ts",
+    "find": "format: SAVE_FORMAT, game, savedAt",
+    "replace": "format: 1, game, savedAt",
+    "note": "формат в файле не равен формату данных"
+  },
+  {
+    "id": "export-pretty-lost",
+    "file": "src/systems/saveFile.ts",
+    "find": "return JSON.stringify(envelope, null, 2);",
+    "replace": "return JSON.stringify(envelope);",
+    "note": "файл в одну строку"
+  },
+  {
+    "id": "restore-without-marker",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  if (!putKey(SERVICE_KEYS.restore, JSON.stringify(marker))) return 'no-space';",
+    "replace": "  void marker;",
+    "note": "Замена из файла идёт без метки: обрыв посреди записи оставляет половину старого прогресса и половину нового, и запуск этого не замечает"
+  },
+  {
+    "id": "erase-without-backup",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  if (!state.empty && !putKey(SERVICE_KEYS.backup, JSON.stringify(backupOf(state, reason, meta)))) {\n    return 'no-space';\n  }",
+    "replace": "  void backupOf;",
+    "note": "«Стереть всё» стирает прогресс без резервной копии: ошибку взрослого не вернуть"
+  },
+  {
+    "id": "backup-overwritten-by-empty",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  if (!state.empty && !putKey(SERVICE_KEYS.backup,",
+    "replace": "  if (!putKey(SERVICE_KEYS.backup,",
+    "note": "Второе «Стереть всё» подряд кладёт пустую копию поверх копии настоящего прогресса: после ошибки взрослого вернуть нечего"
+  },
+  {
+    "id": "backup-without-broken",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    broken: state.broken,\n    heldBack: state.held,",
+    "replace": "    broken: {},\n    heldBack: state.held,",
+    "note": "Обрезанный список решённых узлов после «Стереть всё» пропадает целиком: его сырая строка не попала в копию"
+  },
+  {
+    "id": "backup-without-held",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    heldBack: state.held,",
+    "replace": "    heldBack: {},",
+    "note": "Исходник, который не лёг в слот копии битого, после «Стереть всё» не попадает в резервную копию"
+  },
+  {
+    "id": "replace-keeps-held",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  removeKey(SERVICE_KEYS.restore);\n  clearHeldBack();\n  return 'ok';",
+    "replace": "  removeKey(SERVICE_KEYS.restore);\n  return 'ok';",
+    "note": "После стирания или замены отчёт всё ещё несёт отложенные исходники прежнего прогресса"
+  },
+  {
+    "id": "marker-kept-after-ok",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  removeKey(SERVICE_KEYS.restore);\n  clearHeldBack();",
+    "replace": "  clearHeldBack();",
+    "note": "Метка замены остаётся после удачной замены: каждый запуск докатывает её заново и перетирает сыгранное"
+  },
+  {
+    "id": "rollback-uses-stale-backup",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    const back = marker.backup\n      ? storedBackup()",
+    "replace": "    const back = true\n      ? storedBackup()",
+    "note": "Замена после «Стереть всё» упала, и откат возвращает старую копию: стёртый ребёнком прогресс воскресает"
+  },
+  {
+    "id": "boot-keeps-marker",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  removeKey(SERVICE_KEYS.restore);\n  return 'rolled-back';",
+    "replace": "  return 'rolled-back';",
+    "note": "Докат упал и откатился, но метка осталась: каждый запуск повторяет докат и затирает всё, что ребёнок сыграл за сессию"
+  },
+  {
+    "id": "newer-marker-rolled",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    if (format > SAVE_FORMAT) return 'future';",
+    "replace": "    if (format > SAVE_FORMAT + 10) return 'future';",
+    "note": "Метку замены от более новой игры старая игра докатывает ключами, формата которых не знает"
+  },
+  {
+    "id": "erase-broken-slots-kept",
+    "file": "src/systems/saveReplace.ts",
+    "find": "      if (!keep.includes(key)) removeKey(key);",
+    "replace": "      if (false) removeKey(key);",
+    "note": "После стирания и замены копии битого остаются в слотах: первая копия навсегда занимает место, новая поломка не откладывается"
+  },
+  {
+    "id": "replace-keeps-extra-keys",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    else if (isProgressKey(key) && !(key in plan.keys)) removeKey(key);",
+    "replace": "    else if (false && isProgressKey(key) && !(key in plan.keys)) removeKey(key);",
+    "note": "Замена из файла оставляет ключи прогресса, которых в файле нет: старые наклейки и ступени смешиваются с чужими"
+  },
+  {
+    "id": "erase-sound-lost",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  return sound === undefined ? {} : { [SPECS.settings.key]: sound };",
+    "replace": "  return {};",
+    "note": "«Стереть всё» включает звук, который взрослый выключил"
+  },
+  {
+    "id": "erase-empty-counts-sound",
+    "file": "src/systems/saveReplace.ts",
+    "find": "      !spec.erasable || !(spec.key in keys) ||",
+    "replace": "      !(spec.key in keys) ||",
+    "note": "Звук, выключенный взрослым, считается прогрессом: стирание пустого сохранения кладёт ненужную копию"
+  },
+  {
+    "id": "replace-refused-only-readonly",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  if (!mayWrite() || storeMode() !== 'normal') return 'refused';",
+    "replace": "  if (!mayWrite()) return 'refused';",
+    "note": "В режиме «хранилище новее, писать можно» стирание и замена идут и портят ключи, формата которых игра не знает"
+  },
+  {
+    "id": "erase-answer-text-lost",
+    "file": "src/systems/eraseAll.ts",
+    "find": "if (result === 'no-space') return",
+    "replace": "if (result === 'no-spaceX') return",
+    "note": "После «не хватило места» взрослый не получает объяснения, почему ничего не стёрто"
+  },
+  {
+    "id": "boot-newer-rolls-marker",
+    "file": "src/systems/saveStore.ts",
+    "find": "  } else if (marker !== null && mode === 'normal') {",
+    "replace": "  } else if (marker !== null) {",
+    "note": "Метка замены докатывается в хранилище новее игры и пишет туда ключи старого формата"
+  },
+  {
+    "id": "boot-future-not-first",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (mode === 'future') return 'future';\n  const raw = getRaw(SERVICE_KEYS.restore);",
+    "replace": "  const raw = getRaw(SERVICE_KEYS.restore);",
+    "note": "Хранилище новее игры: нечитаемая метка снимается раньше, чем игра поняла, что писать нельзя"
+  },
+  {
+    "id": "boot-quarantine-numbers-late",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (formats.rawFormat !== null && parseCount(formats.rawFormat) === null)\n    quarantine(SERVICE_KEYS.format, formats.rawFormat);",
+    "replace": "  void 0;",
+    "note": "Битый номер формата переписывается докаткой, не оставив копии"
+  },
+  {
+    "id": "migrate-retry-removed",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (pendingFrom !== null && mode === 'normal' && migrateStore(pendingFrom)) pendingFrom = null;\n  return pendingFrom;",
+    "replace": "  return pendingFrom;",
+    "note": "Миграция, не легшая при запуске, не повторяется: формат 2 не ставится, пока находку не запишут поверх"
+  },
+  {
+    "id": "migrate-union-removed",
+    "file": "src/systems/saveStore.ts",
+    "find": "museumMissing && spec.key === SPECS.collection.key ? withFirstMuseum(value as string[]) : value,",
+    "replace": "value,",
+    "note": "Первая находка новой сессии записывается в пустой музей раньше переноса: музей первой сборки пропадает навсегда"
+  },
+  {
+    "id": "migrate-union-always",
+    "file": "src/systems/saveStore.ts",
+    "find": "const museumMissing = pendingFrom !== null && getRaw(SPECS.collection.key) === null;",
+    "replace": "const museumMissing = pendingFrom !== null;",
+    "note": "Музей, стёртый в 1.1, воскресает при первой находке, если перенос не лёг"
+  },
+  {
+    "id": "quarantine-without-mayWrite",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (!mayWrite()) {\n    // В `future` не пишем даже копию",
+    "replace": "  if (readOnly()) {\n    // В `future` не пишем даже копию",
+    "note": "Другая вкладка подняла формат, и эта вкладка при чтении битого пишет копию в чужое хранилище"
+  },
+  {
+    "id": "store-area-ignored",
+    "file": "src/systems/saveStore.ts",
+    "find": "return area !== null && area === localStorage;",
+    "replace": "return area !== null;",
+    "note": "Запись в sessionStorage с теми же именами перезагружает игру"
+  },
+  {
+    "id": "main-skips-open-store",
+    "file": "src/main.ts",
+    "find": "if (openStore() !== 'unavailable') {",
+    "replace": "if (shouldReloadOn !== undefined) {",
+    "note": "Игра стартует без открытия хранилища: ни миграции, ни докатки, ни копий битого"
+  },
+  {
+    "id": "main-reload-always",
+    "file": "src/main.ts",
+    "find": "isStoreArea(event.storageArea) && shouldReloadOn(event.key)",
+    "replace": "isStoreArea(event.storageArea)",
+    "note": "Игра перезагружается на каждую запись прогресса в соседней вкладке"
+  },
+  {
+    "id": "main-storage-area-ignored",
+    "file": "src/main.ts",
+    "find": "isStoreArea(event.storageArea) && shouldReloadOn(event.key)",
+    "replace": "shouldReloadOn(event.key)",
+    "note": "Игра перезагружается на чужие хранилища"
+  },
+  {
+    "id": "export-size-unchecked",
+    "file": "src/systems/saveFile.ts",
+    "find": "  return size > CONFIG.save.fileMaxBytes ? 'too-big' : envelope;",
+    "replace": "  return size < 0 ? 'too-big' : envelope;",
+    "note": "Игра выгружает файл больше предела, который сама потом не принимает"
+  },
+  {
+    "id": "export-migration-ignored",
+    "file": "src/systems/saveFile.ts",
+    "find": "  if (from !== null) migrateKV(migrated, from);",
+    "replace": "  void from;",
+    "note": "Файл формата 2 выгружается без музея первой сборки, если миграция не легла: возврат из файла его теряет"
+  },
+  {
+    "id": "export-migration-not-retried",
+    "file": "src/systems/saveFile.ts",
+    "find": "  const from = settleMigration();",
+    "replace": "  const from = 1 as number | null;",
+    "note": "Выгрузка не повторяет миграцию"
+  },
+  {
+    "id": "rollback-to-sound-only",
+    "file": "src/systems/saveReplace.ts",
+    "find": ": { keys: state.keys, v1: state.v1, broken: state.broken };",
+    "replace": ": { keys: soundOnly(state.keys) };",
+    "note": "Замена упала посреди записи при непустом прогрессе, а откат возвращает один звук: всё, что ребёнок наиграл, пропадает"
+  },
+  {
+    "id": "rollback-drops-broken",
+    "file": "src/systems/saveReplace.ts",
+    "find": ": { keys: state.keys, v1: state.v1, broken: state.broken };",
+    "replace": ": { keys: state.keys, v1: state.v1 };",
+    "note": "Откат упавшей замены не возвращает копии битого: сырая строка, которую взрослый мог бы прислать, пропадает"
+  },
+  {
+    "id": "marker-backup-always",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    backup: !state.empty,",
+    "replace": "    backup: true,",
+    "note": "Метка говорит «копия сделана» и при пустом текущем: оборванная замена после стирания откатывается к старой копии, и стёртый прогресс воскресает"
+  },
+  {
+    "id": "boot-rollback-drops-broken",
+    "file": "src/systems/saveReplace.ts",
+    "find": "? null : { keys, v1, broken };",
+    "replace": "? null : { keys, v1 };",
+    "note": "Откат при запуске после упавшего доката не возвращает копии битого: они остаются стёртыми"
+  },
+  {
+    "id": "replace-migration-not-retried",
+    "file": "src/systems/saveReplace.ts",
+    "find": "takeState(settleMigration())",
+    "replace": "takeState(null)",
+    "note": "Замена не повторяет миграцию, не легшую при запуске: музей первой сборки в копию не попадает, и упавшая замена откатывается, записав формат 2 поверх неперенесённого v1"
+  },
+  {
+    "id": "replace-migration-memory-dropped",
+    "file": "src/systems/saveFile.ts",
+    "find": "  const present = snapshotAll();\n  const migrated: KV = new Map(Object.entries(present));\n  if (from !== null) migrateKV(migrated, from);\n  const keys: Record<string, string> = {};\n  for (const spec of PROGRESS_KEYS) {\n    if (spec.key in present) keys[spec.key] = JSON.stringify(readKey(spec));\n    else if (migrated.has(spec.key)) {",
+    "replace": "  const present = snapshotAll();\n  const migrated: KV = new Map(Object.entries(present));\n  const keys: Record<string, string> = {};\n  for (const spec of PROGRESS_KEYS) {\n    if (spec.key in present) keys[spec.key] = JSON.stringify(readKey(spec));\n    else if (migrated.has(spec.key)) {",
+    "note": "Миграция не легла ни при запуске, ни перед заменой, а упавшая замена откатывается без музея первой сборки: он пропадает насовсем"
+  },
+  {
+    "id": "journal-unbounded",
+    "file": "src/systems/journal.ts",
+    "find": "      if (tail.length > CONFIG.save.journalSaved) tail.shift();\n",
+    "replace": "",
+    "note": "журнал в браузере растёт без предела и съедает место, нужное для прогресса"
+  },
+  {
+    "id": "journal-ring-unbounded",
+    "file": "src/systems/journal.ts",
+    "find": "      if (ring.length > CONFIG.save.journalMemory) ring.shift();\n",
+    "replace": "",
+    "note": "долгая игра копит журнал в памяти без предела"
+  },
+  {
+    "id": "journal-size-unbounded",
+    "file": "src/systems/journal.ts",
+    "find": "tail.length > 1 && KEY.length + text.length > CONFIG.save.journalMaxBytes",
+    "replace": "false",
+    "note": "журнал с длинными записями перерастает 16 КБ и отнимает место у прогресса"
+  },
+  {
+    "id": "journal-written-readonly",
+    "file": "src/systems/journal.ts",
+    "find": "    if (!mayWrite()) return;\n",
+    "replace": "",
+    "note": "игра, которой писать нельзя (хранилище новее), дописывает журнал в чужое хранилище"
+  },
+  {
+    "id": "journal-evicts-crash",
+    "file": "src/systems/saveStore.ts",
+    "find": "    localStorage.setItem(key, value);\n    return true;\n  } catch {\n    return false;\n  }\n}\n\n/** Прочитать строку как есть",
+    "replace": "    return putResult(key, value) === 'ok';\n  } catch {\n    return false;\n  }\n}\n\n/** Прочитать строку как есть",
+    "note": "на тесном хранилище запись журнала стирает отчёт о прошлом сбое"
+  },
+  {
+    "id": "journal-tail-not-restarted",
+    "file": "src/systems/journal.ts",
+    "find": "if (wrote && rawKey(KEY) === null) tail",
+    "replace": "if (false && rawKey(KEY) === null) tail",
+    "note": "после того как журнал убрали ради прогресса, он возвращается с записями чужих сессий вперемешку"
+  },
+  {
+    "id": "journal-detail-uncut",
+    "file": "src/systems/journal.ts",
+    "find": "text.slice(0, CONFIG.save.journalEntryChars);\n}",
+    "replace": "text;\n}",
+    "note": "длинная подробность записи раздувает журнал"
+  },
+  {
+    "id": "journal-parse-trusts-kind",
+    "file": "src/systems/journal.ts",
+    "find": "|| !isKind(k)) continue;",
+    "replace": "|| false) continue;",
+    "note": "мусорная запись из хранилища попадает в отчёт"
+  },
+  {
+    "id": "journal-saved-live",
+    "file": "src/systems/journal.ts",
+    "find": "        return [...load()];",
+    "replace": "        return [...(load(), tail)];",
+    "note": "в отчёте «прошлые сессии» мешаются с нынешней"
+  },
+  {
+    "id": "journal-boot-mode-fixed",
+    "file": "src/systems/journal.ts",
+    "find": "mode: storeMode(),",
+    "replace": "mode: 'normal',",
+    "note": "в журнале режим хранилища всегда «обычный», даже когда игра только читает"
+  },
+  {
+    "id": "journal-time-absolute",
+    "file": "src/systems/journal.ts",
+    "find": "Math.max(0, Math.round(now() - start))",
+    "replace": "Math.max(0, Math.round(now()))",
+    "note": "время записи считается не от начала сессии"
+  },
+  {
+    "id": "store-event-save-missing",
+    "file": "src/systems/saveStore.ts",
+    "find": "  noteStore('save', { key: shortKey(spec.key), ok: writeOk });\n",
+    "replace": "",
+    "note": "в журнале нет записей сохранения"
+  },
+  {
+    "id": "store-event-save-refused-missing",
+    "file": "src/systems/saveStore.ts",
+    "find": "    noteStore('save', { key: shortKey(spec.key), ok: false });\n",
+    "replace": "",
+    "note": "отказ в записи прогресса не оставляет следа"
+  },
+  {
+    "id": "store-event-broken-missing",
+    "file": "src/systems/saveStore.ts",
+    "find": "      noteStore('broken', { key: shortKey(key), chars: raw.length });\n",
+    "replace": "",
+    "note": "в журнале нет следа, что значение было испорчено и отложено"
+  },
+  {
+    "id": "store-event-broken-again-missing",
+    "file": "src/systems/saveStore.ts",
+    "find": "      noteStore('broken-again', { key: shortKey(key), why: 'slot-taken' });\n",
+    "replace": "",
+    "note": "повторная порча значения не видна в журнале"
+  },
+  {
+    "id": "store-event-migrate-missing",
+    "file": "src/systems/saveStore.ts",
+    "find": "    if (status !== 'fresh') noteStore('migrate', { from: formats.format, ok: pendingFrom === null });",
+    "replace": "",
+    "note": "миграция формата не видна в журнале"
+  },
+  {
+    "id": "store-event-mode-silent",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (now !== was) noteStore('store', { mode: now, from: was });\n",
+    "replace": "",
+    "note": "когда другая вкладка подняла формат, в журнале нет следа"
+  },
+  {
+    "id": "store-event-open-silent",
+    "file": "src/systems/saveStore.ts",
+    "find": "  if (mode !== 'normal') noteStore('store', { status });\n",
+    "replace": "",
+    "note": "запуск в режиме «только чтение» не виден в журнале"
+  },
+  {
+    "id": "store-event-restore-forward-missing",
+    "file": "src/systems/saveReplace.ts",
+    "find": "    noteStore('restore', { rolled: 'forward', reason: marker.reason });\n",
+    "replace": "",
+    "note": "докат оборванной замены при запуске не виден в журнале"
+  },
+  {
+    "id": "store-event-restore-back-missing",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  noteStore('restore', { rolled: 'back', reason: marker.reason });\n",
+    "replace": "",
+    "note": "откат оборванной замены при запуске не виден в журнале"
+  },
+  {
+    "id": "store-event-replace-missing",
+    "file": "src/systems/saveReplace.ts",
+    "find": "  noteStore(reason, { result });\n",
+    "replace": "",
+    "note": "стирание и замена прогресса не видны в журнале"
+  },
+  {
+    "id": "store-observer-throws",
+    "file": "src/systems/storeEvents.ts",
+    "find": "  } catch {\n    /* журнал — не прогресс */\n  }",
+    "replace": "  } finally {\n    /* журнал — не прогресс */\n  }",
+    "note": "сбой журнала ломает запись решённого узла"
+  },
+  {
+    "id": "store-short-key-full",
+    "file": "src/systems/storeEvents.ts",
+    "find": "return key.startsWith(SAVE_PREFIX) ? key.slice(SAVE_PREFIX.length) : key;",
+    "replace": "return key;",
+    "note": "в журнале длинные имена ключей"
+  },
+  {
+    "id": "report-errors-uncapped",
+    "file": "src/systems/crashReport.ts",
+    "find": "const errors = input.errors.slice(0, CONFIG.save.reportErrorsMax);",
+    "replace": "const errors = [...input.errors];",
+    "note": "отчёт после лавины ошибок раздувается"
+  },
+  {
+    "id": "report-dropped-lost",
+    "file": "src/systems/crashReport.ts",
+    "find": "input.errorsDropped + (input.errors.length - errors.length)",
+    "replace": "input.errorsDropped",
+    "note": "в отчёте не видно, сколько ошибок отброшено"
+  },
+  {
+    "id": "report-keeps-disposable",
+    "file": "src/systems/crashReport.ts",
+    "find": ".filter(([key]) => !DISPOSABLE_KEYS.includes(key))",
+    "replace": ".filter(() => true)",
+    "note": "журнал и прошлый сбой попадают в отчёт вторым экземпляром"
+  },
+  {
+    "id": "report-kind-progress",
+    "file": "src/systems/crashReport.ts",
+    "find": "export const REPORT_KIND = 'diplodok-report';",
+    "replace": "export const REPORT_KIND = 'diplodok-progress';",
+    "note": "файл отчёта принимается игрой как файл прогресса"
+  },
+  {
+    "id": "report-log-uncapped",
+    "file": "src/systems/crashReport.ts",
+    "find": "if (log.errors.length >= CONFIG.save.reportErrorsMax) {",
+    "replace": "if (log.errors.length >= Infinity) {",
+    "note": "ошибки за сессию копятся без предела"
+  },
+  {
+    "id": "report-name-utc-day",
+    "file": "src/systems/crashReport.ts",
+    "find": "two(now.getDate())",
+    "replace": "two(now.getUTCDate())",
+    "note": "файл отчёта ночью подписан вчерашним днём"
+  },
+  {
+    "id": "report-name-utc-hour",
+    "file": "src/systems/crashReport.ts",
+    "find": "two(now.getHours())",
+    "replace": "two(now.getUTCHours())",
+    "note": "в имени файла отчёта час не местный"
+  },
+  {
+    "id": "report-message-uncut",
+    "file": "src/systems/crashReport.ts",
+    "find": "message: raw.message.slice(0, CONFIG.save.reportMessageChars),",
+    "replace": "message: raw.message,",
+    "note": "огромное сообщение ошибки раздувает отчёт"
+  },
+  {
+    "id": "report-stack-uncut",
+    "file": "src/systems/crashReport.ts",
+    "find": "raw.stack.slice(0, CONFIG.save.reportStackChars)",
+    "replace": "raw.stack",
+    "note": "огромный стек ошибки раздувает отчёт"
+  },
+  {
+    "id": "crash-noise-resize-shows-screen",
+    "file": "src/systems/crashReport.ts",
+    "find": "  if (message.startsWith('ResizeObserver loop')) return true;\n",
+    "replace": "",
+    "note": "безвредная ошибка ResizeObserver показала бы ребёнку «Позови взрослого»"
+  },
+  {
+    "id": "crash-noise-script-error-shows-screen",
+    "file": "src/systems/crashReport.ts",
+    "find": "return message === 'Script error.';",
+    "replace": "return false;",
+    "note": "чужая ошибка «Script error.» показала бы экран сбоя"
+  },
+  {
+    "id": "crash-noise-rejection-hidden",
+    "file": "src/systems/crashReport.ts",
+    "find": "return message === 'Script error.';",
+    "replace": "return true;",
+    "note": "настоящее отклонённое обещание принято за шум и экрана сбоя нет"
+  },
+  {
+    "id": "crash-noise-origin-prefix",
+    "file": "src/systems/crashReport.ts",
+    "find": "file.startsWith(origin + '/')",
+    "replace": "file.startsWith(origin)",
+    "note": "скрипт с чужого домена, похожего на наш, считается своим"
+  },
+  {
+    "id": "quest-solved-not-journaled",
+    "file": "src/systems/quest.ts",
+    "find": "  journal.note('solved', { node: data.nodeId, kind: data.kind, step: data.step });\n",
+    "replace": "",
+    "note": "в журнале нет решённых узлов"
+  },
+  {
+    "id": "english-done-not-journaled",
+    "file": "src/scenes/englishUi.ts",
+    "find": "  journal.note('english', { set: setId, game });\n",
+    "replace": "",
+    "note": "в журнале нет пройденных английских игр"
+  },
+  {
+    "id": "crash-noise-shows-screen",
+    "file": "src/crashTrap.ts",
+    "find": "        if (noise) return;\n",
+    "replace": "",
+    "note": "случайный шум браузера (ResizeObserver, расширение) показывает ребёнку «Позови взрослого»"
+  },
+  {
+    "id": "crash-second-error-second-screen",
+    "file": "src/crashTrap.ts",
+    "find": "        if (!shown) {",
+    "replace": "        if (true) {",
+    "note": "каждая следующая ошибка заново будит экран сбоя"
+  },
+  {
+    "id": "crash-errors-not-accumulated",
+    "file": "src/crashTrap.ts",
+    "find": "log = addCrashError(log, crashError(raw, deps.now()));",
+    "replace": "log = addCrashError({ errors: [], dropped: 0 }, crashError(raw, deps.now()));",
+    "note": "в отчёте только последняя ошибка, первая — главная — пропала"
+  },
+  {
+    "id": "crash-written-in-future",
+    "file": "src/crashTrap.ts",
+    "find": "      if (!target.mayWrite()) return;\n",
+    "replace": "",
+    "note": "игра пишет в сохранение из новой версии, где писать нельзя"
+  },
+  {
+    "id": "crash-record-uncut",
+    "file": "src/crashTrap.ts",
+    "find": "  while (!fits() && cut.journalSaved.length > 0) cut.journalSaved.shift();",
+    "replace": "",
+    "note": "запись о сбое разрастается за предел и вытесняет прогресс"
+  },
+  {
+    "id": "crash-trap-installed-twice",
+    "file": "src/crashTrap.ts",
+    "find": "  if (marked[INSTALLED] === true) return false;\n",
+    "replace": "",
+    "note": "ловушка вешается дважды: один сбой — два экрана и два отчёта"
+  },
+  {
+    "id": "crash-onchange-throw-blocks-screen",
+    "file": "src/crashTrap.ts",
+    "find": "        attempt(() => deps.onChange(log));",
+    "replace": "        deps.onChange(log);",
+    "note": "не лёгшая запись отчёта оставляет ребёнка без экрана «Позови взрослого»"
+  },
+  {
+    "id": "crash-record-keeps-storage",
+    "file": "src/crashTrap.ts",
+    "find": "liveReport(log, false), CONFIG.save.crashMaxBytes",
+    "replace": "liveReport(log, true), CONFIG.save.crashMaxBytes",
+    "note": "в запись о сбое кладётся копия всего прогресса: места не хватит самому прогрессу"
+  },
+  {
+    "id": "crash-rejection-message-lost",
+    "file": "src/crashTrap.ts",
+    "find": "message: parts.message ?? textOf(event.reason),",
+    "replace": "message: 'unhandledrejection',",
+    "note": "в отчёте у отклонённого обещания нет причины"
+  },
+  {
+    "id": "crash-source-lost",
+    "file": "src/crashTrap.ts",
+    "find": "  if (file !== '') raw.source = `${file}:${event.lineno ?? 0}:${event.colno ?? 0}`;",
+    "replace": "",
+    "note": "в отчёте не видно, в каком файле и строке сломалось"
+  },
+  {
+    "id": "crash-trap-not-first-import",
+    "file": "src/main.ts",
+    "find": "import { attachGame, attachStore } from './crashTrap';\nimport Phaser from 'phaser';",
+    "replace": "import Phaser from 'phaser';\nimport { attachGame, attachStore } from './crashTrap';",
+    "note": "ошибка при загрузке модуля игры случается раньше ловушки: белый экран без объяснения"
+  },
+  {
+    "id": "journal-boot-before-open-store",
+    "file": "src/main.ts",
+    "find": "journal.boot(APP_VERSION, SAVE_FORMAT, new Date());\n\n// Ловушка уже стоит",
+    "replace": "// Ловушка уже стоит",
+    "note": "в журнале нет записи запуска: непонятно, какая версия и режим сохранения сломались"
+  },
+  {
+    "id": "journal-scenes-start-lost",
+    "file": "src/systems/journalScenes.ts",
+    "find": "scene.events.on(Phaser.Scenes.Events.START, record);",
+    "replace": "scene.events.on(Phaser.Scenes.Events.CREATE, record);",
+    "note": "в журнале нет старта сцен: не видно, какой узел или игра были открыты перед сбоем"
+  },
+  {
+    "id": "journal-store-observer-unwired",
+    "file": "src/systems/journal.ts",
+    "find": "setStoreObserver((kind, detail) => journal.note(kind, detail));",
+    "replace": "",
+    "note": "в журнале нет записей хранилища: ни сохранений, ни карантина, ни замены — перед сбоем не видно, что было с прогрессом"
+  },
+  {
+    "id": "overflow-drops-crash-first",
+    "file": "src/systems/saveStore.ts",
+    "find": "      localStorage.removeItem(spare);\n      removed = true;",
+    "replace": "      for (const gone of DISPOSABLE_KEYS) localStorage.removeItem(gone);\n      removed = true;",
+    "note": "запись узла на тесном хранилище стирает отчёт о прошлом сбое вместе с журналом, хотя хватило бы журнала"
+  },
+  {
+    "id": "crash-trap-pulls-store",
+    "file": "src/crashTrap.ts",
+    "find": "import type { StoreMode } from './systems/saveStore';",
+    "replace": "import { storeMode as pulledStoreMode } from './systems/saveStore';\nimport type { StoreMode } from './systems/saveStore';",
+    "note": "ловушка снова тянет хранилище значением: сбой на верхнем уровне его зависимости случается раньше слушателя, экрана нет"
+  },
+  {
+    "id": "crash-trap-pulls-journal",
+    "file": "src/crashTrap.ts",
+    "find": "import type { JournalEntry } from './systems/journal';",
+    "replace": "import { journal as pulledJournal } from './systems/journal';\nimport type { JournalEntry } from './systems/journal';",
+    "note": "ловушка тянет журнал, а за ним хранилище и данные квеста: пустая страница вместо экрана сбоя"
+  },
+  {
+    "id": "crash-trap-pulls-data",
+    "file": "src/crashTrap.ts",
+    "find": "import { CONFIG } from './config';",
+    "replace": "import { QUEST_NODES } from './data/quest';\nimport { CONFIG } from './config';",
+    "note": "ловушка тянет данные игры с вычислениями на верхнем уровне: сбой в них не поймать"
+  },
+  {
+    "id": "crash-trap-pulls-phaser",
+    "file": "src/crashTrap.ts",
+    "find": "import { CONFIG } from './config';",
+    "replace": "import Phaser from 'phaser';\nimport { CONFIG } from './config';",
+    "note": "ловушка тянет Phaser: без WebGL или при сбое пакета слушателя нет"
+  },
+  {
+    "id": "crash-bare-promises-saved",
+    "file": "src/crashTrap.ts",
+    "find": "saved: store !== null && store.lastWriteOk() && store.storeMode() !== 'unavailable',",
+    "replace": "saved: true,",
+    "note": "сбой при загрузке обещает «Прогресс сохранён», хотя хранилище не открывалось"
+  },
+  {
+    "id": "crash-bare-snapshot-foreign-keys",
+    "file": "src/crashTrap.ts",
+    "find": "if (key === null || !key.startsWith(SAVE_PREFIX) || DISPOSABLE_KEYS.includes(key)) continue;\n        const raw = localStorage.getItem(key);\n        if (raw !== null) all[key] = raw;\n      }\n    } catch {\n      /* что успели снять, то и вернём */\n    }\n    return all;\n  },\n  storeMode: rawMode,",
+    "replace": "if (key === null || DISPOSABLE_KEYS.includes(key)) continue;\n        const raw = localStorage.getItem(key);\n        if (raw !== null) all[key] = raw;\n      }\n    } catch {\n      /* что успели снять, то и вернём */\n    }\n    return all;\n  },\n  storeMode: rawMode,",
+    "note": "в отчёте о сбое загрузки лежат чужие игры с того же адреса"
+  },
+  {
+    "id": "crash-bare-writes-in-future",
+    "file": "src/crashTrap.ts",
+    "find": "mayWrite: () => rawMode() !== 'future' && rawMode() !== 'unavailable',",
+    "replace": "mayWrite: () => true,",
+    "note": "сбой при загрузке пишет crash в хранилище из новой версии, где писать нельзя"
+  },
+  {
+    "id": "crash-bare-mode-newer-as-future",
+    "file": "src/crashTrap.ts",
+    "find": "return minWriter <= SAVE_FORMAT ? 'newer' : 'future';",
+    "replace": "return 'future';",
+    "note": "до подключения хранилища режим newer назван future: запись crash запрещена зря, а в отчёте не тот режим"
+  },
+  {
+    "id": "crash-bare-mode-no-access",
+    "file": "src/crashTrap.ts",
+    "find": "    void localStorage.length;\n",
+    "replace": "",
+    "note": "без доступа к localStorage ловушка бросает или называет режим normal"
+  },
+  {
+    "id": "crash-bare-mode-normal-past",
+    "file": "src/crashTrap.ts",
+    "find": "if (format <= SAVE_FORMAT) return 'normal';\n  return minWriter",
+    "replace": "if (format < SAVE_FORMAT) return 'normal';\n  return minWriter",
+    "note": "на хранилище того же формата сбой загрузки считает режим newer"
+  },
+  {
+    "id": "crash-attach-store-ignored",
+    "file": "src/crashTrap.ts",
+    "find": "  store = next;\n",
+    "replace": "",
+    "note": "хранилище не подключается: отчёт без журнала, экран не знает о записи"
+  },
+  {
+    "id": "crash-note-lost-after-attach",
+    "file": "src/crashTrap.ts",
+    "find": "note: (detail) => (store ?? BARE).journal.note('error', detail),",
+    "replace": "note: () => undefined,",
+    "note": "ошибка не попадает в журнал даже у подключённого хранилища"
+  },
+  {
+    "id": "crash-bare-writes-nothing",
+    "file": "src/crashTrap.ts",
+    "find": "      localStorage.setItem(key, value);\n      return true;",
+    "replace": "      return true;",
+    "note": "сбой загрузки не оставляет записи crash: взрослый потом не найдёт отчёт в меню"
+  },
+  {
+    "id": "menu-readonly-shows-export",
+    "file": "src/art/parentsLayout.ts",
+    "find": "if (mode === 'normal') items.push('export', 'import');",
+    "replace": "if (mode !== 'unavailable') items.push('export', 'import');",
+    "note": "в режиме только чтение меню предлагает выгрузку и замену, которых игра не сделает"
+  },
+  {
+    "id": "menu-newer-shows-erase",
+    "file": "src/art/parentsLayout.ts",
+    "find": "if (mode === 'normal') items.push('erase');",
+    "replace": "if (mode !== 'future') items.push('erase');",
+    "note": "в режиме newer меню предлагает «Стереть всё»"
+  },
+  {
+    "id": "menu-backup-in-unavailable",
+    "file": "src/art/parentsLayout.ts",
+    "find": "if (hasBackup && mode !== 'unavailable') items.push('backup');",
+    "replace": "if (hasBackup) items.push('backup');",
+    "note": "без доступа к хранилищу меню предлагает скачать копию"
+  },
+  {
+    "id": "menu-estimate-narrow-glyph",
+    "file": "src/art/parentsLayout.ts",
+    "find": "glyphWidth: 0.66,",
+    "replace": "glyphWidth: 0.3,",
+    "note": "оценка ширины букв занижена: строки режима вылезают за панель"
+  },
+  {
+    "id": "pick-reads-before-size",
+    "file": "src/systems/parentsFiles.ts",
+    "find": "if (file.size > CONFIG.save.fileMaxBytes) return { ok: false, reason: 'too-big' };",
+    "replace": "",
+    "note": "огромный файл читается целиком до проверки размера"
+  },
+  {
+    "id": "report-storage-stale",
+    "file": "src/systems/parentsFiles.ts",
+    "find": "text: JSON.stringify({ ...data, storage }, null, 2)",
+    "replace": "text: JSON.stringify(data, null, 2)",
+    "note": "отчёт из угла взрослых отдаётся без свежего storage"
+  },
+  {
+    "id": "backup-name-today",
+    "file": "src/systems/parentsFiles.ts",
+    "find": "const at = localDay(savedAt) ?? now;",
+    "replace": "const at = now;",
+    "note": "имя копии по сегодняшнему дню, а не по дню, когда она снята"
+  },
+  {
+    "id": "summary-backup-date-lost",
+    "file": "src/systems/parentsFiles.ts",
+    "find": "head: at === null ? null : `Резервная копия от ${dayText(at)}`,",
+    "replace": "head: null,",
+    "note": "сводка не говорит, что файл — резервная копия"
+  },
+  {
+    "id": "menu-keys-not-silenced",
+    "file": "src/scenes/StartScene.ts",
+    "find": "    this.keyHandler = (event: KeyboardEvent) => {\n      if (this.parentsOpen) return;\n",
+    "replace": "    this.keyHandler = (event: KeyboardEvent) => {\n",
+    "note": "пока меню взрослых открыто, «1/2/3» уводят со сцены"
+  },
+  {
+    "id": "open-status-not-remembered",
+    "file": "src/systems/saveStore.ts",
+    "find": "  rememberOpenStatus(status);\n",
+    "replace": "",
+    "note": "меню не говорит, что прошлая замена откатилась"
+  },
+  {
+    "id": "replace-double-yes",
+    "file": "src/scenes/parentsMenu.ts",
+    "find": "    if (replacing) return;\n",
+    "replace": "",
+    "note": "двойной клик по «Да» в сводке повторяет замену: копией становится прогресс из файла, свежий прогресс ребёнка пропадает"
+  },
+  {
+    "id": "main-store-not-attached",
+    "file": "src/main.ts",
+    "find": "attachStore({",
+    "replace": "void ({",
+    "note": "ловушке не отданы хранилище и журнал: отчёт о сбое без журнала, «Прогресс сохранён» никогда"
   }
 ]

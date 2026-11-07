@@ -6,17 +6,19 @@
  * а когда набор пройден — зовёт finishEnglishGame и больше ни о чём не думает.
  */
 import Phaser from 'phaser';
+import { SWATCH_OUTLINE } from '../art/englishLayout';
 import { TEX } from '../art/keys';
 import { PUZZLE_PANEL } from '../art/layout';
-import { PALETTE } from '../art/palette';
+import { hex, PALETTE } from '../art/palette';
 import { createBackButton, createPanel, createRoundButton, createText } from '../art/ui';
 import { audio } from '../audio/AudioEngine';
 import { DinoWatcher } from '../entities/DinoWatcher';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { CONFIG } from '../config';
-import { wordHint } from '../data/english';
+import { englishSet, wordHint } from '../data/english';
 import type { EnglishGame, EnglishWord } from '../data/english';
 import { englishSave } from '../systems/englishSave';
+import { journal } from '../systems/journal';
 import { onEscape } from '../systems/quest';
 import { speech } from '../systems/speech';
 import { SCENE } from '../types';
@@ -46,15 +48,28 @@ export function addEnglishBackdrop(scene: Phaser.Scene, title: string): void {
   heading.setDepth(1);
 }
 
-/** Выход на экран ветки: кнопка в углу и Esc — как во всех задачках. */
-export function addBackToEnglish(scene: Phaser.Scene, setIndex: number): void {
+/**
+ * Выход на экран ветки: кнопка в углу и Esc — как во всех задачках.
+ *
+ * `beforeEscape` — у игры есть что отменить прежде, чем выходить (выбранный
+ * путь в поиске слова): вернула true — Esc потрачен на это, и сцена остаётся.
+ * Кнопка в углу уходит всегда.
+ */
+export function addBackToEnglish(
+  scene: Phaser.Scene,
+  setIndex: number,
+  beforeEscape?: () => boolean,
+): void {
   const leave = (): void => {
     speech.stop();
     scene.scene.start(SCENE.ENGLISH, { setIndex });
   };
   const button = createBackButton(scene, leave, { radius: 52 });
   button.container.setDepth(250000);
-  onEscape(scene, leave);
+  onEscape(scene, () => {
+    if (beforeEscape?.() === true) return;
+    leave();
+  });
 }
 
 /**
@@ -84,6 +99,22 @@ export function createSpeakButton(
 }
 
 /**
+ * Набор пройден — записать. Сцена зовёт это в тот самый миг, когда последнее
+ * слово найдено, а не дожидается праздника: Esc в паузе перед звездой уходил
+ * раньше `finishEnglishGame`, и набор не засчитывался (002-22). Повторная
+ * запись ничего не меняет.
+ */
+export function markEnglishDone(setIndex: number, game: EnglishGame): void {
+  recordEnglishDone(englishSet(setIndex).id, game);
+}
+
+/** Запись набора и след в журнале: единственное место, где английская игра засчитывается. */
+function recordEnglishDone(setId: string, game: EnglishGame): void {
+  journal.note('english', { set: setId, game });
+  englishSave.markDone(setId, game);
+}
+
+/**
  * Набор пройден: звезда во весь экран и возврат на экран ветки.
  * Вызывать ровно один раз; сцена после этого ничего делать не должна.
  */
@@ -93,7 +124,7 @@ export function finishEnglishGame(
   setIndex: number,
   game: EnglishGame,
 ): void {
-  englishSave.markDone(setId, game);
+  recordEnglishDone(setId, game);
   speech.stop();
   audio.play('fanfare');
 
@@ -168,7 +199,19 @@ export function createHintButton(
   x: number,
   y: number,
   ru: string,
-  options: { depth?: number; size?: number; radius?: number; hit?: number; fromLeft?: boolean } = {},
+  options: {
+    depth?: number;
+    size?: number;
+    radius?: number;
+    hit?: number;
+    fromLeft?: boolean;
+    /**
+     * Перевод показан или спрятан. Нужен там, где рядом с кнопкой стоит картинка
+     * слова, а перевод длиннее кружка: сцена прячет картинку на время перевода,
+     * иначе «Мы — друзья» ложится прямо на неё.
+     */
+    onToggle?: (shown: boolean) => void;
+  } = {},
 ): Hint {
   const depth = options.depth ?? 3;
   const radius = options.radius ?? HINT_RADIUS;
@@ -203,22 +246,21 @@ export function createHintButton(
   let over = false;
   let latched = false;
   let shown = false;
-  let dimmed = false;
 
   const apply = (): void => {
     const next = over || latched;
     if (next === shown) return;
     shown = next;
-    const faded = dimmed ? 0.45 : 1;
+    options.onToggle?.(next);
     scene.tweens.add({
       targets: translation,
-      alpha: next ? 0.85 * faded : 0,
+      alpha: next ? 1 : 0,
       duration: next ? 200 : 160,
     });
     // Кружок не прячется насовсем, а растворяется: ему ещё возвращаться.
     scene.tweens.add({
       targets: [circle, mark],
-      alpha: next ? 0 : faded,
+      alpha: next ? 0 : 1,
       scale: next ? 0.4 : 1,
       duration: next ? 180 : 150,
     });
@@ -246,11 +288,11 @@ export function createHintButton(
 
   return {
     parts: [translation, circle, mark, zone],
+    // Слово отгадано — «?» приглушается цветом, а не прозрачностью: сквозь альфу
+    // просвечивает панель, и кнопка читается сломанной, а не отработавшей.
     dim(): void {
-      dimmed = true;
-      translation.setAlpha(shown ? 0.85 * 0.45 : 0);
-      circle.setAlpha(shown ? 0 : 0.45);
-      mark.setAlpha(shown ? 0 : 0.45);
+      circle.setFillStyle(PALETTE.uiButtonCalm);
+      translation.setColor(hex(PALETTE.uiButtonCalmDark));
     },
   };
 }
@@ -343,7 +385,7 @@ export function createWordMark(
   if (word.swatch !== undefined) {
     return scene.add
       .circle(x, y, size / 2, word.swatch)
-      .setStrokeStyle(4, PALETTE.uiButtonCalmDark);
+      .setStrokeStyle(SWATCH_OUTLINE.width, SWATCH_OUTLINE.color);
   }
   return null;
 }

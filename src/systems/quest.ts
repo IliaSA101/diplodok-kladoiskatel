@@ -13,6 +13,7 @@ import { audio } from '../audio/AudioEngine';
 import { DinoWatcher } from '../entities/DinoWatcher';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { questSave } from './questSave';
+import { journal } from './journal';
 import { skillSave } from './skill';
 import type { PuzzleKind } from '../data/quest';
 import { SCENE } from '../types';
@@ -54,6 +55,8 @@ export function notePuzzleMistake(scene: Phaser.Scene): void {
  * Вызывать ровно один раз; сцена после этого ничего делать не должна.
  */
 export function finishPuzzle(scene: Phaser.Scene, data: PuzzleSceneData): void {
+  // Запись в журнал раньше запоминания: сбой в самой записи тоже должен оставить след.
+  journal.note('solved', { node: data.nodeId, kind: data.kind, step: data.step });
   questSave.markSolved(data.nodeId, data.sticker);
   skillSave.note(
     data.kind,

@@ -8,7 +8,9 @@
 import Phaser from 'phaser';
 import { TEX } from '../art/keys';
 import { PALETTE } from '../art/palette';
+import { SET_PICKER, setPickerSpots } from '../art/englishLayout';
 import { ENGLISH_HUB } from '../art/layout';
+import { createSetBadgeFigure } from '../art/setBadge';
 import { createBackButton, createPanel, createRoundButton, createText } from '../art/ui';
 import { audio } from '../audio/AudioEngine';
 import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
@@ -28,8 +30,6 @@ const CARD_STEP = ENGLISH_HUB.cardStep;
 /** Звезда «игра пройдена» в правом верхнем углу карточки. */
 const STAR_SIZE = 62;
 
-const SET_RADIUS = 34;
-const SET_Y = 118;
 
 /** Подпись и сцена каждой игры. */
 const GAME_INFO: Record<EnglishGame, { label: string; scene: string }> = {
@@ -114,8 +114,8 @@ export class EnglishScene extends Phaser.Scene {
   // ---------- Наборы слов ----------
 
   private createSetPicker(): void {
-    const step = SET_RADIUS * 2 + 18;
-    const left = GAME_WIDTH / 2 - ((ENGLISH_SETS.length - 1) * step) / 2;
+    const spots = setPickerSpots(ENGLISH_SETS.length);
+    const radius = SET_PICKER.radius;
 
     ENGLISH_SETS.forEach((set, index) => {
       const done = englishSave.doneCount(set.id) >= ENGLISH_GAMES.length;
@@ -123,12 +123,14 @@ export class EnglishScene extends Phaser.Scene {
       const main = done ? PALETTE.gold : here ? PALETTE.uiButton : PALETTE.uiButtonCalm;
       const dark = done ? PALETTE.goldDark : here ? PALETTE.uiButtonDark : PALETTE.uiButtonCalmDark;
 
-      const circle = this.add.circle(0, 0, SET_RADIUS, main).setStrokeStyle(5, dark);
-      const label = createText(this, 0, -2, String(index + 1), 40, PALETTE.uiText);
-      const button = this.add.container(left + index * step, SET_Y, [circle, label]).setDepth(5);
-      button.setSize(SET_RADIUS * 2, SET_RADIUS * 2);
+      // Вместо цифры — картинка набора: мяч, яблоко, семья. Кружок под ней
+      // по-прежнему говорит «выбран» и «пройден».
+      const circle = this.add.circle(0, 0, radius, main).setStrokeStyle(5, dark);
+      const figure = createSetBadgeFigure(this, set, radius);
+      const button = this.add.container(spots[index] ?? 0, SET_PICKER.y, [circle, figure]).setDepth(5);
+      button.setSize(radius * 2, radius * 2);
       if (here) {
-        button.setScale(1.14);
+        button.setScale(SET_PICKER.selectedScale);
         return;
       }
       button.setInteractive({ useHandCursor: true });
@@ -169,6 +171,12 @@ export class EnglishScene extends Phaser.Scene {
         // Зона уже обычной: ниже стоят карточки игр, и широкая отбирала бы у
         // них верхний край.
         hit: 64,
+        // Перевод по центру кнопки длиннее кружка («Мы — друзья») и ложился бы на
+        // картинку слова: на время перевода она растворяется, как и сам кружок.
+        onToggle: (shown) => {
+          if (mark === null) return;
+          this.tweens.add({ targets: mark, alpha: shown ? 0 : 1, duration: shown ? 180 : 150 });
+        },
       });
     });
   }

@@ -74,6 +74,34 @@ export const TEX = {
     cow: 'en-cow',
     pig: 'en-pig',
     hen: 'en-hen',
+    apple: 'en-apple',
+    milk: 'en-milk',
+    bread: 'en-bread',
+    egg: 'en-egg',
+    cake: 'en-cake',
+    mum: 'en-mum',
+    dad: 'en-dad',
+    baby: 'en-baby',
+    sister: 'en-sister',
+    brother: 'en-brother',
+  } as const,
+
+  /**
+   * Картинки на кружках наборов, которых нет среди слов: вся семья на кружок
+   * «Family». У «Football» и «Food» кружок берёт картинку своего слова.
+   */
+  EN_SET: {
+    family: 'en-family',
+  } as const,
+
+  /**
+   * Картинки к словам квеста, которым не хватало предмета среди значков:
+   * ПОЛЕ, ДУШ и ТРИБУНА (004-6). Лист английской ветки, но слова русские.
+   */
+  WORD_PIC: {
+    pitch: 'word-pitch',
+    shower: 'word-shower',
+    stands: 'word-stands',
   } as const,
 
   // Футбольный квест: значки для судоку и маджонга

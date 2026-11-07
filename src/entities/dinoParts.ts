@@ -19,10 +19,112 @@ import {
   hasArtParts,
 } from '../art/diplodocus';
 import { DINO_ART, DINO_MESH } from '../art/dinoArtMeta';
-import { createDinoPlane, HEAD_EYE, HEAD_MOUTH, prepareWarp } from '../art/dinoWarp';
+import { dinoEyeScale } from '../art/dinoLayout';
+import {
+  HEAD_EYE,
+  HEAD_MOUTH,
+  MESH_COLS,
+  MESH_ROWS,
+  meshRestPosition,
+  prepareWarp,
+  shiftRestVertices,
+} from '../art/dinoWarp';
 
 /** Глаз, вырезанный с целого рисунка: им моргает сетчатый диплодок. */
 const MESH_EYE = 'dino-mesh-eye';
+
+/**
+ * Сетка диплодока, которую можно пересчитать сразу, а не ждать следующего кадра.
+ *
+ * Phaser переводит вершины в экранные в `preUpdate`, а он идёт раньше, чем
+ * сцена зовёт `dino.update` и шея гнётся: сетка рисовалась с прошлым изгибом,
+ * на шаг позади глаза, который едет отдельной картинкой. `refresh()` зовут
+ * сразу после изгиба. Пустой `preUpdate` вместо этого сетка бы потеряла, если
+ * сцена забудет позвать `dino.update`, — поэтому он остаётся родным.
+ */
+export class DinoPlane extends Phaser.GameObjects.Plane {
+  /** Сетка построена конструктором Plane и больше не меняется. */
+  private gridBuilt = false;
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    texture: string,
+    frame: string | number | undefined,
+    gridWidth: number,
+    gridHeight: number,
+  ) {
+    super(scene, x, y, texture, frame, gridWidth, gridHeight);
+    this.gridBuilt = true;
+  }
+
+  refresh(): void {
+    this.preUpdate(0, 0);
+  }
+
+  /**
+   * Plane зовёт это на каждую смену текстуры и кадра с `resetUV = true`, а тот
+   * кладёт UV всех вершин на ровную сетку и стирает сдвиги в просвет. Здесь UV
+   * не сбрасываются никогда: остаётся пересчёт перспективы, а он нужен.
+   */
+  override setSizeToFrame(_resetUV?: boolean): this {
+    return super.setSizeToFrame(false);
+  }
+
+  /**
+   * Сетку строит конструктор. Новая сетка — это новые вершины без сдвигов в
+   * просвет, поэтому после сборки вызов ничего не делает (бросать нельзя: это
+   * экран ребёнка, а не место для падения).
+   */
+  setGridSize(width?: number, height?: number, tile?: boolean): this {
+    if (this.gridBuilt) return this;
+    // В типах Phaser метода нет, а конструктор Plane его зовёт: берём родной с прототипа.
+    const base = Phaser.GameObjects.Plane.prototype as unknown as { setGridSize(w?: number, h?: number, t?: boolean): void };
+    base.setGridSize.call(this, width, height, tile);
+    return this;
+  }
+
+  /** Сдвиг и масштаб UV идут по всем граням разом (в `tu`/`tv`, их читает рендерер) и уносят куски рисунка. */
+  override uvScroll(_x: number, _y: number): this {
+    return this;
+  }
+
+  override uvScale(_x: number, _y: number): this {
+    return this;
+  }
+
+  /** Шахматная текстура подменяет рисунок и зовёт `setSizeToFrame`: не нужна, не работает. */
+  override createCheckerboard(): void {}
+}
+
+/**
+ * Сетка с рисунком диплодока, уже в масштабе рига.
+ *
+ * Ловушка: `plane.setTexture` и `plane.setFrame` зовут `setSizeToFrame()`. У родного
+ * Plane он сбрасывает UV всех вершин на ровную сетку, и тринадцать кусков рисунка
+ * разъезжаются с вершинами, сдвинутыми в просвет (`shiftRestVertices`), до 16 px.
+ * У `DinoPlane` сброс выключен, и это уже не та беда: смена кадра оставила бы UV
+ * от старого кадра, то есть рисунок другого кадра лёг бы на чужую раскладку. Текстура
+ * и кадр задаются в конструкторе и больше не меняются; нужен другой рисунок — новая
+ * сетка. Что именно не сбрасывается и что проекция остаётся родной, держит
+ * `tests/dinoPlane.test.ts`; `tests/dinoWarp.test.ts` запасной регуляркой читает
+ * код и не пускает эти вызовы на сетку.
+ */
+export function createDinoPlane(scene: Phaser.Scene): DinoPlane {
+  const plane = new DinoPlane(scene, 0, 0, DINO_MESH.key, undefined, MESH_COLS, MESH_ROWS);
+  scene.add.existing(plane);
+  // Картинка кладётся так, чтобы её низ встал на землю, а плечо — в плечо рига.
+  const rest = meshRestPosition();
+  plane.setPosition(rest.x, rest.y).setScale(DINO_MESH.scale);
+  // Вершины двигаем мы сами, и Mesh об этом не знает: без этого флага он
+  // пересчитывает их только когда сам объект сдвинулся, и шея не гнётся.
+  plane.ignoreDirtyCache = true;
+  // Вершины на стыках лап и хвоста уходят в просвет вместе с UV, а не стоят на краске.
+  const { u0, u1, v0, v1 } = plane.frame;
+  shiftRestVertices(plane.vertices, (vertex, du, dv) => vertex.setUVs(vertex.u + du * (u1 - u0), vertex.v + dv * (v1 - v0)));
+  return plane;
+}
 
 export interface DinoParts {
   /** Корневой контейнер. Его точка привязки — ЛАПЫ (касание земли). */
@@ -37,6 +139,8 @@ export interface DinoParts {
   headTurn: Phaser.GameObjects.Container;
   eyeOpen: Phaser.GameObjects.Image;
   eyeHappy: Phaser.GameObjects.Image;
+  /** Размер глаза в покое: к нему возвращаются после радости и моргания. */
+  eyeRestScale: number;
   leafImg: Phaser.GameObjects.Image;
   starWrap: Phaser.GameObjects.Container;
   starImg: Phaser.GameObjects.Image;
@@ -45,7 +149,7 @@ export interface DinoParts {
   frontLegs: Phaser.GameObjects.Image[];
   backLegs: Phaser.GameObjects.Image[];
   /** Сетка с целым диплодоком: у неё гнётся шея. Пусто у диплодока из кода. */
-  plane: Phaser.GameObjects.Plane | null;
+  plane: DinoPlane | null;
   /** Разложение вершин сетки по шее, голове, лапам и хвосту — считается один раз. */
   planeBounds: ReturnType<typeof prepareWarp> | null;
   /** Тело, шея и голова — нарисованные картинки, а не фигуры из кода. */
@@ -131,7 +235,7 @@ export function buildDinoParts(scene: Phaser.Scene, x: number, y: number): DinoP
   // Глаз лежит в пикселях рисунка, а тут мы в пикселях рига: ужимаем. Хранить
   // его сразу мелким нельзя — на экранах задачек его растягивают обратно,
   // и там была видна лесенка.
-  const eyeFit = art ? DINO_MESH.scale : 1;
+  const eyeFit = dinoEyeScale(art, DINO_MESH.scale);
   const eyeOpen = scene.add
     .image(head.eyeX, head.eyeY, art ? MESH_EYE : DINO_TEX.EYE)
     .setScale(eyeFit);
@@ -177,6 +281,7 @@ export function buildDinoParts(scene: Phaser.Scene, x: number, y: number): DinoP
     headTurn,
     eyeOpen,
     eyeHappy,
+    eyeRestScale: eyeFit,
     leafImg,
     starWrap,
     starImg,

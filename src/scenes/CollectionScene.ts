@@ -6,39 +6,32 @@
  */
 import Phaser from 'phaser';
 import { CONFIG, GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { centredGrid } from '../art/layout';
-import { ALBUM_ITEM_FILL, ALBUM_SLOT_MIN, TREASURE_DESIGN } from '../art/treasureLayout';
+import {
+  ALBUM_ITEM_FILL,
+  ALBUM_PANEL,
+  TREASURE_DESIGN,
+  albumLayout,
+  albumSide,
+} from '../art/treasureLayout';
 import { PALETTE } from '../art/palette';
 import { TEX, itemTexture } from '../art/keys';
 import { createPanel, createRoundButton, createText } from '../art/ui';
 import { createLevelBadge } from '../art/levelBadge';
+import { DINO_COLLECTION_SPOT, dinoSpotIn } from '../art/dinoLayout';
+import { DinoWatcher } from '../entities/DinoWatcher';
 import { SCENE } from '../types';
 import type { CollectionSceneData } from '../types';
 
-const COLUMNS = 4;
 /** Исходный размер текстуры ячейки TEX.SLOT. */
 const SLOT_TEXTURE_SIZE = 180;
-/** Самая большая ячейка и самая маленькая, которой ещё можно доверять палец и глаз. */
-const SLOT_MAX = 165;
-const SLOT_MIN = ALBUM_SLOT_MIN;
-const SLOT_GAP = 16;
 /** Секретная ячейка крупнее остальных во столько раз. */
 const SECRET_SCALE = 1.1;
 /** Какую долю ячейки занимает предмет. */
 const ITEM_FILL = ALBUM_ITEM_FILL;
 const ITEM_TEXTURE_SIZE = TREASURE_DESIGN;
 
-const PANEL_W = 1200;
-const PANEL_H = 680;
-const PANEL_PADDING = 40;
-
-/** Область под сетку (координаты внутри панели, центр панели — ноль). */
-const GRID_TOP = -245;
-const GRID_BOTTOM = 320;
-/** Правая колонка: счётчик, точки, рюкзак и кнопка «назад». */
-const SIDE_X = 354;
-const DOTS_PER_ROW = 7;
-const DOT_STEP = 36;
+const PANEL_W = ALBUM_PANEL.width;
+const PANEL_H = ALBUM_PANEL.height;
 
 export class CollectionScene extends Phaser.Scene {
   private level = 1;
@@ -78,6 +71,7 @@ export class CollectionScene extends Phaser.Scene {
     this.buildTitle(root);
     this.buildGrid(root);
     this.buildSide(root);
+    this.addDino(root);
 
     this.tweens.add({ targets: root, scale: 1, duration: 250, ease: 'Back.easeOut' });
 
@@ -94,6 +88,17 @@ export class CollectionScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Диплодок стоит справа внизу, правее кнопки «назад», и выпрыгивает вместе
+   * с панелью. Всё найдено — он радуется, когда панель встала на место.
+   */
+  private addDino(root: Phaser.GameObjects.Container): void {
+    const spot = dinoSpotIn(DINO_COLLECTION_SPOT, root.x, root.y);
+    const dino = DinoWatcher.create(this, 0, spot, root);
+    const complete = this.itemIds.every((id) => this.foundItemIds.includes(id));
+    if (complete) this.time.delayedCall(450, () => dino?.cheer());
+  }
+
   /** Цифра леса в золотом кружке и «Мои сокровища» рядом. */
   private buildTitle(root: Phaser.GameObjects.Container): void {
     const y = -PANEL_H / 2 + 52;
@@ -108,35 +113,18 @@ export class CollectionScene extends Phaser.Scene {
     root.add(badge.container);
   }
 
-  /** Размер ячейки: как можно крупнее, но чтобы все строки влезли в область сетки. */
-  private slotSize(rows: number): number {
-    const available = GRID_BOTTOM - GRID_TOP;
-    const fit = Math.floor((available - SLOT_GAP * (rows - 1)) / rows);
-    return Phaser.Math.Clamp(fit, SLOT_MIN, SLOT_MAX);
-  }
-
   /** Сетка ячеек: найденное — в цвете с тенью, ненайденное — тёмный силуэт. */
   private buildGrid(root: Phaser.GameObjects.Container): void {
     const count = this.itemIds.length;
-    const rows = Math.max(1, Math.ceil(count / COLUMNS));
-    const slot = this.slotSize(rows);
-    const step = slot + SLOT_GAP;
+    // Где стоит каждая ячейка, считает treasureLayout: его же проверяет тест.
+    const { slot, spots } = albumLayout(count);
     const slotScale = slot / SLOT_TEXTURE_SIZE;
 
-    // Блок сетки прижат к левому краю панели, по вертикали — середина области.
-    // Внутри блока каждый ряд стоит по центру своей длины: на тринадцати
-    // предметах последний ряд — одна ячейка, и прижатая влево она оставляла
-    // справа дыру в три ячейки. Это же считает «Запомни пары».
-    const blockX = -PANEL_W / 2 + PANEL_PADDING + ((COLUMNS - 1) * step) / 2 + slot / 2;
-    const blockY = (GRID_TOP + GRID_BOTTOM) / 2;
-    const grid = centredGrid(count, COLUMNS, step);
-
     this.itemIds.forEach((itemId, index) => {
-      const spot = grid.spots[index];
+      const spot = spots[index];
       if (spot === undefined) return;
       const secret = index === count - 1;
-      const x = blockX + spot.dx;
-      const y = blockY + spot.dy;
+      const { x, y } = spot;
       const k = secret ? slotScale * SECRET_SCALE : slotScale;
       // Ячейка «вдавлена» сверху, поэтому предмет чуть ниже её центра.
       const itemY = y + 4 * k;
@@ -180,34 +168,23 @@ export class CollectionScene extends Phaser.Scene {
     return g;
   }
 
-  /** Правая колонка: крупное «5 из 8», ряды точек, рюкзак и кнопка «назад». */
+  /** Правая колонка: крупное «5 из 8», рюкзак и кнопка «назад». */
   private buildSide(root: Phaser.GameObjects.Container): void {
     const total = this.itemIds.length;
     const found = this.itemIds.filter((id) => this.foundItemIds.includes(id)).length;
 
-    root.add(createText(this, SIDE_X, -140, `${found} из ${total}`, CONFIG.ui.fontSizeCounter, PALETTE.uiText));
-
-    // Точки: найденные золотые; когда их много — несколько рядов по DOTS_PER_ROW.
-    const dotRows = Math.max(1, Math.ceil(total / DOTS_PER_ROW));
-    for (let i = 0; i < total; i += 1) {
-      const row = Math.floor(i / DOTS_PER_ROW);
-      const col = i % DOTS_PER_ROW;
-      const inRow = Math.min(DOTS_PER_ROW, total - row * DOTS_PER_ROW);
-      const isFound = i < found;
-      const dot = this.add.circle(
-        SIDE_X + (col - (inRow - 1) / 2) * DOT_STEP,
-        -60 + (row - (dotRows - 1) / 2) * 34,
-        12,
-        isFound ? PALETTE.gold : PALETTE.uiButtonCalm,
-      );
-      dot.setStrokeStyle(3, isFound ? PALETTE.goldDark : PALETTE.uiButtonCalmDark);
-      root.add(dot);
+    for (const part of albumSide(found, total)) {
+      if (part.kind === 'counter') {
+        root.add(createText(this, part.x, part.y, part.text, CONFIG.ui.fontSizeCounter, PALETTE.uiText));
+      } else if (part.kind === 'backpack') {
+        root.add(this.add.image(part.x, part.y, TEX.ICON_BACKPACK).setScale(1.2));
+      } else {
+        const backButton = createRoundButton(this, part.x, part.y, TEX.ICON_BACK, () => this.close(), {
+          radius: part.radius,
+        });
+        root.add(backButton.container);
+      }
     }
-
-    root.add(this.add.image(SIDE_X, 60, TEX.ICON_BACKPACK).setScale(1.2));
-
-    const backButton = createRoundButton(this, SIDE_X, 220, TEX.ICON_BACK, () => this.close(), { radius: 70 });
-    root.add(backButton.container);
   }
 
   /** Вернуть лес: эту сцену останавливаем, лес снимаем с паузы. */

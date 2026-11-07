@@ -1,0 +1,55 @@
+{
+  "game": "1.1.1",
+  "ref": "15d061c+v1.1.1",
+  "about": "стёрто в 1.1.1: v1:collection первой сборки жив, v2:collection = [], после стирания два узла; выбор леса не открывали",
+  "storage": {
+    "diplodok-kladoiskatel:v1:collection": "[\"crystal\",\"coin\"]",
+    "diplodok-kladoiskatel:v2:collection": "[]",
+    "diplodok-kladoiskatel:v2:completed": "[]",
+    "diplodok-kladoiskatel:v2:current": "1",
+    "diplodok-kladoiskatel:v2:levels": "{}",
+    "diplodok-kladoiskatel:v2:settings": "{\"muted\":true}",
+    "diplodok-kladoiskatel:v3:english-done": "[]",
+    "diplodok-kladoiskatel:v3:quest-skill": "{\"sudoku\":4,\"mahjong\":4,\"word\":4,\"quiz\":4,\"memory\":4,\"count\":4,\"pattern\":4,\"sequence\":4}",
+    "diplodok-kladoiskatel:v3:quest-solved": "[\"q1\",\"q2\"]",
+    "diplodok-kladoiskatel:v3:quest-stickers": "[\"sticker-header\",\"sticker-ball\"]"
+  },
+  "seen": {
+    "current": 1,
+    "levels": {},
+    "completed": [],
+    "muted": true,
+    "museum": [
+      "crystal",
+      "coin"
+    ],
+    "solved": [
+      "q1",
+      "q2"
+    ],
+    "stickers": [
+      "sticker-header",
+      "sticker-ball"
+    ],
+    "golden": [],
+    "english": {
+      "first": 0,
+      "animals": 0,
+      "colours": 0
+    },
+    "skill": {
+      "sudoku": 4,
+      "mahjong": 4,
+      "word": 4,
+      "quiz": 4,
+      "memory": 4,
+      "count": 4,
+      "pattern": 4,
+      "sequence": 4
+    }
+  },
+  "expect": {
+    "museum": []
+  },
+  "why": "1.1 воскрешает музей из v1:collection при пустом v2; 1.2 пустой музей оставляет пустым (миграция 1→2 трогает v2 только если его нет вовсе)"
+}

@@ -21,7 +21,7 @@
 import Phaser from 'phaser';
 import { DINO_MESH } from '../art/dinoArtMeta';
 import { TEX } from '../art/keys';
-import { DINO_TAIL, DINO_WATCH_SPOT, type DinoSpot } from '../art/dinoLayout';
+import { DINO_CHEER, DINO_TAIL, DINO_WATCH_SPOT, type DinoSpot } from '../art/dinoLayout';
 
 /** Глубина по умолчанию: над травой (-10), но под панелью задачки (0). */
 const DEPTH = -5;
@@ -58,6 +58,7 @@ export class DinoWatcher {
     image: Phaser.GameObjects.Image,
     depth: number,
     spot: DinoSpot,
+    parent: Phaser.GameObjects.Container | null,
   ) {
     this.fit = spot.height / image.height;
     // Внутри контейнера живём в пикселях рисунка, ужимает всех контейнер.
@@ -75,6 +76,10 @@ export class DinoWatcher {
       .container(spot.centerX, spot.bottom, [this.body])
       .setDepth(depth)
       .setScrollFactor(0);
+    // Экран «выпрыгивает» целиком (панель сокровищ, лист альбома): диплодок,
+    // стоящий на нём, едет с ним, а не торчит на месте. Позиция тогда — в
+    // координатах контейнера (`dinoSpotIn`).
+    parent?.add(this.root);
 
     // Хвост-завиток привязан к углу панели задачки, и на хабе, где диплодок
     // стоит целиком и панели под ним нет, он бы просто лежал на траве сам по
@@ -93,17 +98,20 @@ export class DinoWatcher {
     * `depth` — на сколько глубже панели он стоит. У задачек квеста панель на
     * нуле, у английских — на -5, поэтому число приходит снаружи: иначе на
     * английских экранах диплодок оказался бы поверх панели, во весь рост.
+    * `parent` — контейнер, в который он встаёт: позиция тогда в координатах
+    * контейнера (`dinoSpotIn`), а глубина решается порядком в нём.
     */
   static create(
     scene: Phaser.Scene,
     depth: number = DEPTH,
     spot: DinoSpot = DINO_WATCH_SPOT,
+    parent: Phaser.GameObjects.Container | null = null,
   ): DinoWatcher | null {
     if (!scene.textures.exists(TEX.DINO_WHOLE)) return null;
     // Кадр назван явно: вырез хвоста живёт в этой же текстуре, и полагаться
     // на то, какой кадр у неё сейчас «первый», нельзя.
     const image = scene.add.image(0, 0, TEX.DINO_WHOLE, '__BASE').setOrigin(0.5, 1);
-    return new DinoWatcher(scene, image, depth, spot);
+    return new DinoWatcher(scene, image, depth, spot, parent);
   }
 
   /**
@@ -183,7 +191,7 @@ export class DinoWatcher {
     const scene = this.body.scene;
     scene.tweens.add({
       targets: this.root,
-      y: this.root.y - 26,
+      y: this.root.y - DINO_CHEER.jump,
       duration: 240,
       yoyo: true,
       repeat: 1,
@@ -191,7 +199,7 @@ export class DinoWatcher {
     });
     scene.tweens.add({
       targets: this.body,
-      angle: { from: -6, to: 6 },
+      angle: { from: -DINO_CHEER.swayDeg, to: DINO_CHEER.swayDeg },
       duration: 170,
       yoyo: true,
       repeat: 3,

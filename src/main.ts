@@ -1,4 +1,7 @@
 /** Точка входа: собираем игру и запускаем. */
+// Ловушка сбоев — первым импортом, и в её графе нет ни данных, ни хранилища, ни журнала:
+// иначе ошибка на верхнем уровне такого модуля случилась бы раньше, чем встал слушатель.
+import { attachGame, attachStore } from './crashTrap';
 import Phaser from 'phaser';
 import { PALETTE } from './art/palette';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
@@ -24,6 +27,51 @@ import { PuzzleWordScene } from './scenes/PuzzleWordScene';
 import { QuestMapScene } from './scenes/QuestMapScene';
 import { StartScene } from './scenes/StartScene';
 import { VictoryScene } from './scenes/VictoryScene';
+import { journal } from './systems/journal';
+import { trackScenes } from './systems/journalScenes';
+import { SAVE_FORMAT } from './systems/saveKeys';
+import {
+  heldBack,
+  isStoreArea,
+  lastWriteOk,
+  mayWrite,
+  openStore,
+  putKey,
+  shouldReloadOn,
+  snapshotAll,
+  storeMode,
+} from './systems/saveStore';
+import { APP_VERSION } from './art/startLayout';
+
+// Хранилище открывается до первой сцены: номер формата, миграции, битое — в копию.
+// Не бросает; без доступа к localStorage игра идёт без сохранения.
+if (openStore() !== 'unavailable') {
+  // Другая вкладка сменила формат, сделала замену или стирание: эта вкладка
+  // держит устаревшее представление, и честнее начать с чистого экрана (001-36).
+  // Слушаем только `localStorage`: у `sessionStorage` те же имена ничего не значат.
+  window.addEventListener('storage', (event) => {
+    if (isStoreArea(event.storageArea) && shouldReloadOn(event.key)) location.reload();
+  });
+}
+
+// Первая запись сессии — после `openStore()`, чтобы в ней был настоящий режим (001-80).
+journal.boot(APP_VERSION, SAVE_FORMAT, new Date());
+
+// Ловушка уже стоит с первой строки и до этого места обходилась `localStorage` напрямую:
+// хранилище и журнал она получает только сейчас, потому что их модули могли сами не загрузиться.
+attachStore({
+  mayWrite,
+  putKey,
+  snapshotAll,
+  storeMode,
+  heldBack,
+  lastWriteOk,
+  journal: {
+    note: (kind, detail) => journal.note(kind, detail),
+    entries: () => journal.entries(),
+    saved: () => journal.saved(),
+  },
+});
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -71,6 +119,10 @@ const game = new Phaser.Game({
     EnglishCatchScene,
   ],
 });
+
+// Ловушке нужна игра, чтобы остановить её на сбое; журналу — чтобы писать старты сцен.
+attachGame(game);
+trackScenes(game, (detail) => journal.note('scene', detail));
 
 // Правый клик по игре не нужен.
 game.canvas.oncontextmenu = (event: Event): void => event.preventDefault();

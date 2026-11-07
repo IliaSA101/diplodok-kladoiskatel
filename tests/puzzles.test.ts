@@ -22,7 +22,8 @@ import {
 } from '../src/art/layout';
 import { SUDOKU_BOARD, sudokuLayout, sudokuToolSpot } from '../src/art/sudokuLayout';
 import { PUZZLE_PANEL as PANEL } from '../src/art/layout';
-import { SUDOKU_LEVELS, SUDOKU_SEEDS, WORD_TIERS, sudokuLevel, sudokuSeed } from '../src/data/quest';
+import { WORD_TIERS } from '../src/data/questWords';
+import { SUDOKU_LEVELS, SUDOKU_SEEDS, sudokuLevel, sudokuSeed } from '../src/data/questDeals';
 import {
   PATTERN_CELLS,
   PATTERN_MAX_LEVEL,
